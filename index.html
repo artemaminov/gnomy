@@ -18,8 +18,10 @@
 }
 html,body{height:100%}
 [hidden]{display:none!important}
+.fx{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:40; image-rendering:pixelated}
 body{
-  background:radial-gradient(ellipse 90% 60% at 50% -8%, #3d2b17 0%, var(--cave) 62%) fixed, var(--cave);
+  background:radial-gradient(ellipse 90% 60% at 50% -8%, rgba(61,43,23,.95) 0%, rgba(27,21,17,0) 62%) fixed, var(--rock-img) 0 0/192px 192px repeat, var(--cave);
+  image-rendering:pixelated;
   color:var(--ink); font-family:var(--font-body); font-size:18px; line-height:1.45;
   padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px));
   -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none;
@@ -64,6 +66,7 @@ button:focus-visible{outline:3px solid var(--gem); outline-offset:2px}
 .card-head > div{min-width:0}
 .card-head .num{font-family:var(--font-display); color:var(--lamp); font-size:30px; line-height:1}
 .card-head p{font-size:15px; color:var(--muted); margin-top:6px}
+.tag{display:inline-block; background:var(--ruby); color:var(--cave); font-size:13px; font-weight:700; padding:2px 8px; margin-left:6px; vertical-align:middle}
 .master{display:inline-block; background:var(--lamp); color:var(--cave); font-family:var(--font-display); font-size:14px; padding:2px 8px; margin-left:6px; vertical-align:middle}
 .stages{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
 .levels{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:8px}
@@ -194,6 +197,13 @@ button:focus-visible{outline:3px solid var(--gem); outline-offset:2px}
 /* цифры и слова одним чётким шрифтом: пиксельные 5 и S путаются */
 h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:var(--font-body); font-weight:700}
 .q,.num,.gems,.blk,.key,.chain,.gain,.ans,.arr-row span,.dot text,.crystals figure{font-weight:700}
+/* пиксельные каменные текстуры */
+:root{--stone-img:none; --crys-img:none; --rock-img:none}
+.blk,.key:not(.ok):not(.del){background-image:var(--stone-img); background-size:100% 100%; image-rendering:pixelated; text-shadow:0 2px 0 rgba(255,255,255,.28); box-shadow:none}
+.blk.step{filter:brightness(1.35)}
+.blk.beat{filter:sepia(1) saturate(2.5) brightness(1.25)}
+.blk.gem{background-image:var(--crys-img); background-color:var(--gem)}
+.card,.hoard,.qbox,.intro,.item,.modal{box-shadow:inset 0 0 0 3px rgba(0,0,0,.35), 0 6px 0 rgba(0,0,0,.35)}
 @media (max-width:640px){
   .crys-wrap,.mine-wrap{grid-template-columns:minmax(0,1fr)}
   .key{min-height:58px}
@@ -211,37 +221,180 @@ function px(rows, pal, cls){
   return `<svg class="px ${cls||''}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${out}</svg>`;
 }
 const ART = {
-  gnome:["....RR......","...RRRR.....","...RRRRR....","..RRRRRRR...","..RRRRRRRR..",".RRRRRRRRRR.","..SSSSSSSS..","..SKSSSSKS..","..SSSNNSSS..","..WWSSSSWW..","..WWWWWWWW..",".CCWWWWWWCC.",".CCCWWWWCCC.",".CCCCWWCCCC.","..CCCCCCCC..","..BB....BB..",".BBB....BBB."],
-  gem:["...LCCC...","..LLCCCC..",".LLCCCCCD.","LLCCCCCCDD",".CCCCCCDD.","..CCCCDD..","...CCDD...","....DD...."],
+  gnome:["........oo......",".......ohRo.....","......ohRRo.....","......ohRRRo....",".....ohRRRRo....",".....ohRRRRro...","....ohRRRRRRro..","...ohRRRRRRRRro.","..orrrrrrrrrrro.","..oSSSSSSSSSSso.","..oSSSESSSESSso.","..osSSSSNNSSSso.","..oWwSSNNSSwWo..",".oWWWwSSSSwWWWo.",".oWWWWWwwWWWWWo.","oCoWWWWWWWWWWoCo","oCcoWWWWWWWWocCo","oSCcBBBGGBBBcCSo",".ooCCCCCCCCCCoo.","..oCCCCooCCCCo..","..oKkKo..oKkKo..",".oKKKKo..oKKKKo."],
+  gem:["....ooooooo....","...oLWLlMlDo...","..oLWLlMMlDDo..",".oLLLlMMMlDDdo.","oLLLLlMMMMlDDdo","oddDDDMMMMDDddo",".odDDMMMlMMDdo.","..odDMMMlMMDo..","...odDMMlMDo...","....odMMlDo....",".....odMlo.....","......oMo......",".......o......."],
   star:["....Y....","...YYY...","YYYYYYYYY",".YYYYYYY.","..YYYYY..",".YYY.YYY.",".YY...YY."],
   lantern:["...KK...","..K..K..",".KKKKKK.",".KYYYYK.",".KYOOYK.",".KYOOYK.",".KYYYYK.",".KKKKKK.","..KKKK.."],
   mush:["...BBBB.....",".BBLBBBB....","BBBBBBLBB...",".BBBBBBB.PPP","...SS...PPLP","...SS....SS.","...SS....SS.","..SSSS..SSSS"],
   cart:["..R.CC.Y....",".RRCCCYYY...","KKKKKKKKKKKK","KBBBBBBBBBBK","KBBBBBBBBBBK",".KKKKKKKKKK.","..DD....DD..","..DD....DD.."],
   robot:["......A.....",".....AAA....","......G.....","..GGGGGGGG..",".GGDDDDDDGG.",".GDDCDDCDDG.",".GDDCDDCDDG.",".GGDDDDDDGG.","..GGGGGGGG..","...WWWWWW...",".GGWWLLWWGG.",".G.WWWWWW.G.","...GG..GG...","..GGG..GGG.."],
-  pick:["..CCCCCC..",".CCLLLLCC.","CC..BB..CC","C...BB...C","....BB....","....BB....","....BB....","....BB....","....BB...."],
+  pick:["...oooooo...",".ooLLCCCCoo.","oLCoohbooCDo","oCo.ohbo.oDo","oo..ohbo..oo","....ohbo....","....ohbo....","....ohbo....","....ohbo....","....ohbo....","....obbo....",".....oo....."],
   crown:["Y...YY...Y","YY..YY..YY","YYY.YY.YYY","YYYYYYYYYY","YRYYCCYYRY","YYYYYYYYYY"],
 };
 const PAL = {
-  gem:{L:'#c9fff6',C:'#5fd3c6',D:'#2b8f8a'},
+  gem:{o:'#0d3b3f',W:'#ffffff',L:'#c9fff6',l:'#8ff0e4',M:'#5fd3c6',D:'#2b8f8a',d:'#1c5f5e'},
   star:{Y:'#f7c548'}, starOff:{Y:'#4a3d31'},
   lantern:{K:'#9a8a78',Y:'#ffd36a',O:'#fff4cc'},
   mush:{B:'#4fb3ff',L:'#c6ecff',P:'#b98cff',S:'#e9dcc7'},
   cart:{R:'#e3644d',C:'#5fd3c6',Y:'#f7c548',K:'#8b7b6b',B:'#9c5b34',D:'#5a514a'},
   robot:{A:'#ff5a5a',G:'#e8eef2',D:'#1b2a3a',C:'#5ff0ff',W:'#b9c6cf',L:'#4aa3ff'},
-  pick:{C:'#5fd3e8',L:'#c8f6ff',B:'#8b5a2b'},
+  pick:{o:'#1a120c',C:'#5fd3e8',L:'#c8f6ff',D:'#2b8fa8',B:'#8b5a2b',b:'#5e3a1a',h:'#b07a44'},
   crown:{Y:'#f7c548',R:'#e3644d',C:'#5fd3c6'},
 };
-const gnome = (t)=>px(ART.gnome,{R:t.cap,S:'#f0c9a0',K:'#2a1d14',N:'#e39a7a',W:'#ece6dc',C:t.coat,B:'#5a4030'});
+const gnome = (t)=>px(ART.gnome, gnomePal(t));
 const gemIco = ()=>px(ART.gem,PAL.gem);
 const starsHTML = (k)=>`<span class="stars">${[0,1,2].map(i=>px(ART.star, i<k?PAL.star:PAL.starOff)).join('')}</span>`;
 
+/* ---------- пиксельный движок: спрайты, текстуры камня, искры ---------- */
+const P = 3;                                   // размер «пикселя» на игровых полях
+const snap = v => Math.round(v/P)*P;
+function shade(hex, f){
+  const n = parseInt(hex.slice(1),16), to = f<0 ? 0 : 255, a = Math.abs(f);
+  const ch = s => Math.round(((n>>s)&255) + (to-((n>>s)&255))*a);
+  return '#'+((1<<24)|(ch(16)<<16)|(ch(8)<<8)|ch(0)).toString(16).slice(1);
+}
+function rng(seed){ return ()=>{ seed = (seed*1664525+1013904223)>>>0; return seed/4294967296; }; }
+function canvasOf(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+const _spr = new Map();
+function sprCanvas(rows, pal, key){
+  if(key && _spr.has(key)) return _spr.get(key);
+  const w = Math.max(...rows.map(r=>r.length)), c = canvasOf(w, rows.length), x = c.getContext('2d');
+  rows.forEach((row,j)=>{ for(let i=0;i<row.length;i++){ const col = pal[row[i]]; if(col){ x.fillStyle = col; x.fillRect(i,j,1,1); } } });
+  if(key) _spr.set(key, c);
+  return c;
+}
+function blit(ctx, c, x, y, s=P){ ctx.drawImage(c, snap(x), snap(y), c.width*s, c.height*s); }
+const gnomePal = t => ({o:'#1a120c', R:t.cap, r:shade(t.cap,-0.35), h:shade(t.cap,0.4), S:'#f2c9a0', s:'#d9a07a', E:'#1a120c', N:'#e8907a',
+  W:'#f1ebe0', w:'#c9bfae', C:t.coat, c:shade(t.coat,-0.35), B:'#4a3020', G:'#f7c548', K:'#3b2a1e', k:'#6a4c34'});
+const GEMS = {
+  cyan:    PAL.gem,
+  ruby:    {o:'#3a0e0c',W:'#ffffff',L:'#ffc2b5',l:'#ff8a73',M:'#e3644d',D:'#a8322a',d:'#6e1d1a'},
+  emerald: {o:'#0c2e14',W:'#ffffff',L:'#c8f5c0',l:'#86e07a',M:'#3fb950',D:'#1f7a33',d:'#14501f'},
+  amethyst:{o:'#24103a',W:'#ffffff',L:'#ead2ff',l:'#c69cff',M:'#9b6bff',D:'#6a3fc4',d:'#45267f'},
+  topaz:   {o:'#3a2606',W:'#ffffff',L:'#fff1c2',l:'#ffd36a',M:'#f7b733',D:'#c27f12',d:'#7a4d08'},
+};
+const GEM_KINDS = Object.keys(GEMS);
+const gemSpr = kind => sprCanvas(ART.gem, GEMS[kind], 'gem-'+kind);
+const RAMP = {
+  fire:  ['#ffffff','#fff2a8','#f7c548','#f2b347','#c9862a','#7a3d12'],
+  gem:   ['#ffffff','#c9fff6','#8ff0e4','#5fd3c6','#2b8f8a'],
+  gold:  ['#ffffff','#fff1c2','#f7c548','#c27f12'],
+  stone: ['#b5a593','#9a8874','#6e6052','#4a3f36'],
+  dust:  ['#7a6a5a','#5e5146','#45392f','#2b231c'],
+  water: ['#ffffff','#bfe6ff','#7ab8e8','#4a7aa8'],
+  hurt:  ['#ffffff','#ffc2b5','#e3644d','#a8322a'],
+};
+// цифры 5×7: свой шрифт, чтобы 5 не путалась с S
+const DIG = {
+  '0':[".###.","#...#","#...#","#...#","#...#","#...#",".###."], '1':["..#..",".##..","#.#..","..#..","..#..","..#..","#####"],
+  '2':[".###.","#...#","....#","...#.","..#..",".#...","#####"], '3':[".###.","#...#","....#","..##.","....#","#...#",".###."],
+  '4':["...#.","..##.",".#.#.","#..#.","#####","...#.","...#."], '5':["#####","#....","####.","....#","....#","#...#",".###."],
+  '6':["..##.",".#...","#....","####.","#...#","#...#",".###."], '7':["#####","....#","...#.","..#..",".#...",".#...",".#..."],
+  '8':[".###.","#...#","#...#",".###.","#...#","#...#",".###."], '9':[".###.","#...#","#...#",".####","....#","...#.",".##.."],
+};
+function drawNum(ctx, str, cx, cy, col='#221a14', hi='rgba(255,255,255,.2)', s=P){
+  str = String(str); const w = str.length*6-1, x0 = snap(cx - w*s/2), y0 = snap(cy - 3.5*s);
+  for(const [color, dy] of [[hi, s],[col, 0]]){
+    ctx.fillStyle = color;
+    [...str].forEach((ch,k)=> DIG[ch]?.forEach((row,j)=>{ for(let i=0;i<5;i++) if(row[i]==='#') ctx.fillRect(x0+(k*6+i)*s, y0+j*s+dy, s, s); }));
+  }
+}
+const STONE_PAL = {base:'#6e6052', lo:'#5e5146', hi:'#857565', hi2:'#a39280', dk:'#3f352d', o:'#1f1813'};
+const CRYS_PAL  = {base:'#5fd3c6', lo:'#4cbfb3', hi:'#8ff0e4', hi2:'#c9fff6', dk:'#2b8f8a', o:'#0d3b3f'};
+const BAD_PAL   = {base:'#b0543f', lo:'#984535', hi:'#c96a52', hi2:'#e38b70', dk:'#6e2a20', o:'#2a0e0a'};
+function makeStone(w, h, seed, pal=STONE_PAL, ore=true, clean=false){
+  // clean: середина остаётся гладкой, чтобы цифры читались
+  const c = canvasOf(w,h), x = c.getContext('2d'), r = rng(seed);
+  for(let j=0;j<h;j++) for(let i=0;i<w;i++){ const v = r(); x.fillStyle = v<.18 ? pal.lo : v>.86 ? pal.hi : pal.base; x.fillRect(i,j,1,1); }
+  x.fillStyle = pal.hi2; x.fillRect(1,1,w-2,1); x.fillRect(1,1,1,h-2);
+  x.fillStyle = pal.dk;  x.fillRect(1,h-2,w-2,1); x.fillRect(w-2,1,1,h-2);
+  const edgeX = () => clean ? (r()<.5 ? 2+(r()*3|0) : w-5+(r()*3|0)) : 2+(r()*(w-4))|0;
+  for(let k=0;k<2;k++){ let cx = edgeX(), cy = 2+(r()*(h-4))|0; for(let s=0;s<5;s++){ x.fillRect(cx,cy,1,1); cx += r()<.5?1:-1; cy += r()<.6?1:0; if(cx<2||cx>w-3||cy>h-3||(clean && cx>5 && cx<w-6)) break; } }
+  if(ore) for(let k=0;k<3;k++){ const ox = Math.min(w-4, edgeX()), oy = 2+(r()*(h-5))|0, g = r()<.5 ? ['#f7c548','#fff1c2'] : ['#5fd3c6','#c9fff6']; x.fillStyle = g[0]; x.fillRect(ox,oy,2,1); x.fillStyle = g[1]; x.fillRect(ox,oy,1,1); }
+  else for(let k=0;k<4;k++){ x.fillStyle = '#ffffff'; x.fillRect(edgeX(), 2+(r()*(h-4))|0, 1, 1); }
+  x.fillStyle = pal.o; x.fillRect(1,0,w-2,1); x.fillRect(1,h-1,w-2,1); x.fillRect(0,1,1,h-2); x.fillRect(w-1,1,1,h-2);
+  return c;
+}
+function makeRock(w, h, seed){
+  const c = canvasOf(w,h), x = c.getContext('2d'), r = rng(seed), pal = ['#1b1511','#1e1713','#221a15','#261e18'];
+  for(let j=0;j<h;j++) for(let i=0;i<w;i++){ const v = r(); x.fillStyle = pal[v<.45?1:v<.8?0:v<.95?2:3]; x.fillRect(i,j,1,1); }
+  return c;
+}
+// частицы: квадратные искры, цвет меняется ступеньками по палитре
+function spawnParts(arr, x, y, n, ramp, o={}){
+  for(let i=0;i<n;i++){
+    const a = o.up ? -Math.PI/2 + (Math.random()-.5)*(o.spread ?? 2.4) : Math.random()*Math.PI*2, sp = (o.speed ?? 200)*(0.35+Math.random()*0.9), life = (o.life ?? 0.7)*(0.6+Math.random()*0.7);
+    arr.push({x, y, vx:Math.cos(a)*sp + (o.vx||0), vy:Math.sin(a)*sp - (o.lift ?? 80) + (o.vy||0), life, max:life, ramp, g:o.g ?? 600, s:o.size ?? P});
+  }
+}
+function stepParts(arr, dt){
+  for(const p of arr){ p.x += p.vx*dt; p.y += p.vy*dt; p.vy += p.g*dt; p.vx *= 0.985; p.life -= dt; }
+  return arr.filter(p=>p.life>0);
+}
+function drawParts(ctx, arr, sn=snap){
+  for(const p of arr){ const k = Math.min(p.ramp.length-1, Math.floor((1-p.life/p.max)*p.ramp.length)); ctx.fillStyle = p.ramp[k]; ctx.fillRect(sn(p.x), sn(p.y), p.s, p.s); }
+}
+function twinkle(ctx, x, y, ph){
+  const k = ph % 2.6; if(k>0.6) return;
+  const arm = k<0.15||k>0.45 ? 1 : 2; x = snap(x); y = snap(y);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, P, P);
+  ctx.fillStyle = arm===2 ? '#fff2a8' : '#c9fff6';
+  for(let a=1;a<=arm;a++){ ctx.fillRect(x+a*P, y, P, P); ctx.fillRect(x-a*P, y, P, P); ctx.fillRect(x, y+a*P, P, P); ctx.fillRect(x, y-a*P, P, P); }
+}
+
+/* текстуры для обычных экранов */
+const STONE_URL = makeStone(16,16,11).toDataURL(), CRYS_URL = makeStone(16,16,5,CRYS_PAL,false).toDataURL();
+document.documentElement.style.setProperty('--stone-img', `url(${STONE_URL})`);
+document.documentElement.style.setProperty('--crys-img', `url(${CRYS_URL})`);
+document.documentElement.style.setProperty('--rock-img', `url(${makeRock(48,48,3).toDataURL()})`);
+
+/* искры и летящие алмазы поверх обычных экранов */
+const fx = (()=>{
+  const c = document.createElement('canvas'); c.className = 'fx'; document.body.appendChild(c);
+  const x = c.getContext('2d'); let parts = [], fly = [], raf = 0, lt = 0;
+  const fit = ()=>{ c.width = innerWidth; c.height = innerHeight; x.imageSmoothingEnabled = false; };
+  fit(); addEventListener('resize', fit);
+  const sn = v => Math.round(v/4)*4;
+  function loop(ts){
+    const dt = Math.min(0.05, (ts-(lt||ts))/1000); lt = ts;
+    parts = stepParts(parts, dt);
+    x.clearRect(0,0,c.width,c.height);
+    drawParts(x, parts, sn);
+    for(const f of fly){
+      f.t += dt/0.75;
+      const e = Math.min(1,f.t), ix = (1-e)*(1-e)*f.sx + 2*(1-e)*e*f.cx + e*e*f.tx, iy = (1-e)*(1-e)*f.sy + 2*(1-e)*e*f.cy + e*e*f.ty;
+      const g = gemSpr(f.kind), sw = Math.max(4, Math.abs(Math.cos(f.t*9))*g.width*3);
+      x.drawImage(g, sn(ix-sw/2), sn(iy-g.height*1.5), sw, g.height*3);
+      if(Math.random()<0.6) parts.push({x:ix, y:iy, vx:0, vy:20, life:.3, max:.3, ramp:RAMP.gem, g:0, s:4});
+      if(f.t>=1) spawnParts(parts, f.tx, f.ty, 10, RAMP.gem, {speed:140, size:4, life:.4});
+    }
+    fly = fly.filter(f=>f.t<1);
+    raf = parts.length||fly.length ? requestAnimationFrame(loop) : (x.clearRect(0,0,c.width,c.height), lt = 0, 0);
+  }
+  const kick = ()=>{ if(!raf) raf = requestAnimationFrame(loop); };
+  const center = el => { const r = el.getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; };
+  return {
+    burst(el, n=18, ramp=RAMP.gem, o={}){ if(!el) return; const [cx,cy] = center(el); spawnParts(parts, cx, cy, n, ramp, {speed:260, size:4, life:.6, ...o}); kick(); },
+    gemTo(el, kind='cyan'){
+      const t = $('#gemc'); if(!el||!t) return;
+      const [sx,sy] = center(el), [tx,ty] = center(t);
+      fly.push({sx, sy, tx, ty, cx:(sx+tx)/2, cy:Math.min(sy,ty)-120, t:0, kind}); kick();
+    },
+  };
+})();
+
 /* ---------- мир ---------- */
 const TABLES = [
-  {n:4, name:'Четверик', cap:'#c8553d', coat:'#4f6d3a', lore:'Четыре времени года, четыре стороны света. Четверик бьёт киркой на каждом четвёртом камне.'},
-  {n:6, name:'Шестак',   cap:'#d99a2b', coat:'#3d5a80', lore:'У пчелиных сот шесть стенок. Шестак любит мёд и шагает по шесть.'},
-  {n:7, name:'Семипяд',  cap:'#8a5bb8', coat:'#8a4b2a', lore:'Семь дней в неделе, семь цветов радуги. Семипяд — самый хитрый гном.'},
-  {n:8, name:'Осьмин',   cap:'#2f8f96', coat:'#6b3b5a', lore:'У паука восемь ног. Осьмин дружит с пещерными паучками.'},
+  {n:2, name:'Двака',    cap:'#4f86d9', coat:'#7a5a3a', lore:'У Дваки всё парами: два сапога, две рукавицы, два глаза. Шагает: левой, правой.'},
+  {n:3, name:'Тристан',  cap:'#d96b9a', coat:'#3f6a5a', lore:'Тристан ходит вальсом: раз-два-три. Его любимая фигура — треугольник.'},
+  {n:4, name:'Квадрик',  cap:'#c8553d', coat:'#4f6d3a', hard:true, lore:'Четыре времени года, четыре угла у квадрата. Квадрик бьёт киркой на каждом четвёртом камне.'},
+  {n:5, name:'Пятрик',   cap:'#e8c547', coat:'#5a4a7a', lore:'Пять пальцев на руке, пять лепестков у шиповника. Пятрик считает на пальцах.'},
+  {n:6, name:'Шестопал', cap:'#d98a2b', coat:'#3d5a80', hard:true, lore:'У пчелиных сот шесть стенок. Шестопал любит мёд и шагает по шесть.'},
+  {n:7, name:'Семён',    cap:'#8a5bb8', coat:'#8a4b2a', hard:true, lore:'Семь дней в неделе, семь цветов радуги. Семён — самый хитрый гном.'},
+  {n:8, name:'Октавиан', cap:'#2f8f96', coat:'#6b3b5a', hard:true, lore:'У паука восемь ног. Октавиан знает все паучьи повадки.'},
+  {n:9, name:'Девятко',  cap:'#6d9a3a', coat:'#3a3a5a', lore:'Девятко знает секрет: сложи цифры его ответа, и всегда выйдет 9.'},
 ];
+const HARD = TABLES.filter(t=>t.hard);   // Большая шахта и подсветка «трудная»
 const tableOf = n => TABLES.find(t=>t.n===n);
 const ITEMS = [
   {at:25,  key:'lantern', name:'Фонарь',              text:'В шахте стало светло.'},
@@ -249,7 +402,7 @@ const ITEMS = [
   {at:110, key:'cart',    name:'Вагонетка',           text:'Возить самоцветы стало легче.'},
   {at:180, key:'robot',   name:'Робот Бип',           text:'Едет с тобой в гонке и один раз защищает от удара.'},
   {at:260, key:'pick',    name:'Алмазная кирка',      text:'В гонке у тебя на одну каску больше.'},
-  {at:360, key:'crown',   name:'Корона короля гномов', text:'Её носит тот, кто знает всю таблицу.'},
+  {at:360, key:'crown',   name:'Корона короля гномов', text:'Корона короля Одина. Её получает тот, кто знает всю таблицу.'},
 ];
 
 /* ---------- сохранение (только на этом планшете) ---------- */
@@ -293,6 +446,7 @@ function addGems(k, el){
     const r = el.getBoundingClientRect(), f = document.createElement('div');
     f.className='float'; f.textContent='+'+k; f.style.left=(r.left+r.width/2)+'px'; f.style.top=(r.top)+'px';
     document.body.appendChild(f); setTimeout(()=>f.remove(), 1000);
+    fx.burst(el, 10+k*3); fx.gemTo(el);
   }
 }
 function bar(title){
@@ -332,7 +486,7 @@ function home(){
   <div class="mines">
     ${TABLES.map(t=>{ const p=tp(t.n); return `<section class="card">
       <div class="card-head">${gnome(t)}<div>
-        <div class="num">×${t.n}${p.mine===3?'<span class="master">мастер</span>':''}</div>
+        <div class="num">×${t.n}${t.hard?'<span class="tag">трудная</span>':''}${p.mine===3?'<span class="master">мастер</span>':''}</div>
         <h3>Гном ${t.name}</h3><p>${t.lore}</p></div></div>
       <div class="stages">
         <button class="stage" data-go="rhythm" data-arg="${t.n}"><b>Тропа</b>${starsHTML(p.rhythm)}</button>
@@ -438,7 +592,7 @@ function crystal(n){
       $('#q').innerHTML = `${n} × ${k} = ${ans}`;
       last = d; misses = 0; k++;
       if(k>10) return finish();
-      setTimeout(()=>{ ask(); if(n%2===0 && k===6) say('Смотри: нить пошла по второму кругу!'); }, 650);
+      setTimeout(()=>{ ask(); if(n%2===0 && k===6) say('Смотри: нить пошла по второму кругу!'); if(n===5 && k===3) say('Смотри: нить ходит туда и обратно!'); }, 650);
     } else {
       g.classList.remove('no'); void g.offsetWidth; g.classList.add('no'); thud(); misses++; allMiss++;
       if(misses===1) say(k===1 ? `${n} × 1 = ${n}` : `Подсказка: ${n*(k-1)} + ${n} = ?`);
@@ -448,7 +602,7 @@ function crystal(n){
   ask();
   function finish(){
     $('#cfill').classList.add('show'); fanfare();
-    say(n%2 ? 'Звезда! Нить обошла все десять цифр.' : 'Пятиугольник! Нить дважды обошла пять цифр.');
+    say(n===5 ? 'Всего две цифры, 5 и 0: нить ходит туда и обратно.' : n===9 ? 'Десятиугольник! Нить обошла все цифры по кругу, только задом наперёд.' : n%2 ? 'Звезда! Нить обошла все десять цифр.' : 'Пятиугольник! Нить дважды обошла пять цифр.');
     if(!S.crystals.includes(n)) S.crystals.push(n);
     const stars = allMiss===0?3:allMiss<=3?2:1;
     tp(n).crystal = Math.max(tp(n).crystal, stars); addGems(5); save();
@@ -472,7 +626,7 @@ function mine(arg){
   let qs;
   if(big){
     const pool = [], seen = new Set();
-    for(const T of TABLES) for(let k=3;k<=9;k++){ const key=fk(T.n,k); if(!seen.has(key)){ seen.add(key); pool.push({n:T.n,k}); } }
+    for(const T of HARD) for(let k=3;k<=9;k++){ const key=fk(T.n,k); if(!seen.has(key)){ seen.add(key); pool.push({n:T.n,k}); } }
     qs = pickWeighted(pool, 15);
   } else {
     const base = shuffle([2,3,4,5,6,7,8,9].map(k=>({n:arg,k})));
@@ -562,9 +716,17 @@ function mine(arg){
 }
 
 /* ---------- 4. Гонка на вагонетке ---------- */
-const HEART = [".RR.RR.","RRRRRRR","RRRRRRR",".RRRRR.","..RRR..","...R..."];
-function drawArt(ctx, rows, pal, x, y, s){
-  rows.forEach((row,j)=>{ for(let i=0;i<row.length;i++){ const c=pal[row[i]]; if(c){ ctx.fillStyle=c; ctx.fillRect(x+i*s, y+j*s, s+0.5, s+0.5); } } });
+const CART = ["......CW...YW..RW.....","....CCCCRRYYYYCCRRR...","..oCCRRRYYCCCCRRYYCCo.","ohhhhhhhhhhhhhhhhhhhho","oKnKKKKKKKKKKKKKKKKnKo",".oBBBBbBBBBBBBbBBBBBo.",".oBbBBbBBBBBBBbBBbBBo.",".oKnKKKKKKKKKKKKKKnKo.","..oBBBbBBBBBBBBbBBBo..","..okkkkkkkkkkkkkkkko..","...oDDo........oDDo...","..oDddDo......oDddDo..","..oDddDo......oDddDo..","...oDDo........oDDo..."];
+const HEART = [".oo.oo.","oWRoRRo","oRRRRRo","oRRRRRo",".oRRRo.","..oRo..","...o..."];
+const TORCH = [
+  ["...R...","..RO...","..OYOR.",".ROYWO.",".OYWYO.","..OYO..","..oKo..","...w...","...w...","...w..."],
+  ["....R..","...OR..","..ROYO.",".OYWYR.",".OYWYO.","..OYO..","..oKo..","...w...","...w...","...w..."],
+  ["..R....","..ROR..",".ROYO..",".OYWOR.",".OYWYO.","..OYO..","..oKo..","...w...","...w...","...w..."],
+];
+const TORCH_PAL = {o:'#1a120c', w:'#6e3d22', K:'#8b7b6b', Y:'#ffd36a', O:'#f2b347', R:'#e3644d', W:'#fff4cc'};
+const torchSpr = i => sprCanvas(TORCH[i], TORCH_PAL, 'torch'+i);
+function glow(ctx, x, y, r=70){
+  for(const [k,a] of [[1,.07],[.7,.08],[.42,.1]]){ ctx.fillStyle = `rgba(242,179,71,${a})`; ctx.beginPath(); ctx.arc(x, y, r*k*(0.96+Math.random()*0.08), 0, Math.PI*2); ctx.fill(); }
 }
 function distractors(n,k){
   const a = n*k, out = new Set();
@@ -573,18 +735,50 @@ function distractors(n,k){
   for(const x of [near[0], ...other]) if(out.size<2 && x>0 && x!==a && x<100) out.add(x);
   return [...out];
 }
+// табло сверху: каски, пример, счёт, полоска пути
+function drawHud(ctx, W, {hearts, maxHearts, mult, right, total, done, q, clock}){
+  ctx.fillStyle = '#120d0a'; ctx.fillRect(0,0,W,75);
+  ctx.fillStyle = '#2b231c'; ctx.fillRect(0,69,W,6);
+  const full = sprCanvas(HEART, {o:'#3a0e0c', R:'#e3644d', W:'#ffc2b5'}, 'heart'), empty = sprCanvas(HEART, {o:'#1a120c', R:'#3a2f28', W:'#4a3f36'}, 'heart0');
+  for(let i=0;i<maxHearts;i++) ctx.drawImage(i<hearts ? full : empty, 9+i*24, 9, 21, 21);
+  ctx.drawImage(gemSpr('cyan'), W-84, 40, 22.5, 19.5);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '700 20px "Balsamiq Sans", sans-serif';
+  ctx.fillStyle = '#5fd3c6'; ctx.fillText(`${right}/${total}`, W-10, 51);
+  if(mult>1){ ctx.fillStyle = Math.sin(clock*12)>0 ? '#fff2a8' : '#f7c548'; ctx.fillText('×'+mult, W-10, 20); }
+  if(q){ ctx.textAlign = 'center'; ctx.fillStyle = '#f4e8d3'; ctx.font = '700 34px "Balsamiq Sans", sans-serif'; ctx.fillText(`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ?`, W/2, 38); }
+  const seg = W/total;
+  for(let i=0;i<total;i++){ ctx.fillStyle = i<done ? '#f2b347' : '#3a2f28'; ctx.fillRect(Math.round(i*seg)+1, 75, Math.max(2, Math.round(seg)-2), 6); }
+}
+function drawFlash(ctx, W, flash, yBig, ySmall){
+  if(!flash) return;
+  ctx.globalAlpha = Math.min(1, flash.t*3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if(!flash.small){
+    ctx.fillStyle = '#120d0a'; ctx.fillRect(27, yBig-39, W-54, flash.sub?114:72);
+    ctx.fillStyle = '#40342a'; ctx.fillRect(27, yBig-39, W-54, 3); ctx.fillRect(27, yBig-39+(flash.sub?111:69), W-54, 3);
+  }
+  ctx.fillStyle = flash.color; ctx.font = `700 ${flash.small?30:38}px "Balsamiq Sans", sans-serif`;
+  ctx.fillText(flash.text, W/2, flash.small ? ySmall : yBig-3);
+  if(flash.sub){ ctx.fillStyle = '#bba98f'; ctx.font = '700 20px "Balsamiq Sans", sans-serif'; ctx.fillText(flash.sub, W/2, yBig+41); }
+  ctx.globalAlpha = 1;
+}
 function race(arg){
-  const big = arg==='big', t = big ? TABLES[(Math.random()*4)|0] : tableOf(arg);
-  const WAVES = big ? 25 : 20, W = 360, H = 560, LX = [70,180,290], CY = 478, VMIN = 55, VMAX = 230;
-  const pool = big ? TABLES.flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k}))) : [2,3,4,5,6,7,8,9].map(k=>({n:arg,k}));
-  const start = S.gems;
-  let lane = 1, cx = LX[1], v = big ? 75 : 65, scroll = 0, wave = null, last = null, done = 0, right = 0, crashes = 0;
-  let hearts = 3 + (S.gems>=260 ? 1 : 0), shield = S.gems>=180, combo = 0, mult = 1, pause = 0, shake = 0, flash = null, parts = [], running = false, over = false, raf = 0, lastT = 0, boost = false, swipe = null;
+  const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
+  const WAVES = big ? 25 : 20, W = 360, H = 560, LX = [69,180,291], CY = 478, VMIN = 55, VMAX = 230;
+  const pool = (big ? HARD : [t]).flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k})));
+  const start = S.gems, maxHearts = 3 + (S.gems>=260 ? 1 : 0);
+  let lane = 1, cx = LX[1], v = big ? 75 : 65, scroll = 0, wave = null, last = null, done = 0, right = 0, crashes = 0, clock = 0;
+  let hearts = maxHearts, shield = S.gems>=180, combo = 0, mult = 1, pause = 0, shake = 0, red = 0, flash = null;
+  let parts = [], gemsFly = [], motes = [], running = false, over = false, raf = 0, lastT = 0, boost = false, swipe = null;
+  const stones = [0,1,2,3].map(i=>makeStone(28,18,40+i,STONE_PAL,true,true)), crys = makeStone(28,18,9,CRYS_PAL,false,true), bad = makeStone(28,18,12,BAD_PAL,false,true);
+  const floorT = makeRock(120, 40, 21), wallT = makeStone(10, 40, 33, {base:'#2b231c', lo:'#241d17', hi:'#352b22', hi2:'#40342a', dk:'#15100c', o:'#120d0a'}, true);
+  const cartPal = {o:'#1a120c', K:'#8b7b6b', k:'#5a4e44', h:'#b5a593', B:'#9c5b34', b:'#6e3d22', n:'#d8c8b0', C:'#5fd3c6', R:'#e3644d', Y:'#f7c548', W:'#ffffff', D:'#3a3330', d:'#8b7b6b'};
+  const cartS = sprCanvas(CART, cartPal, 'cart-big'), headS = sprCanvas(ART.gnome.slice(0,15), gnomePal(t), 'head'+t.n), botS = sprCanvas(ART.robot, PAL.robot, 'robot');
+  for(let i=0;i<24;i++) motes.push({x:30+Math.random()*300, y:Math.random()*H, ph:Math.random()*6});
 
   app.innerHTML = `${bar(big ? 'Гонка по Большой шахте' : 'Гонка с гномом '+t.name)}
     <div class="race"><canvas id="rc" aria-label="Поле гонки"></canvas>
       <div class="race-start" id="rs">
-        ${px(ART.cart,PAL.cart)}
+        ${px(CART, cartPal)}
         <h2>Вагонетка мчится по шахте!</h2>
         <p>Наверху пример. Навстречу летят три камня с ответами. Переезжай на рельсы с <b>правильным</b> ответом и лови его.</p>
         <p class="muted">Знаешь ответ сразу? Проведи пальцем вверх (или ↑), и вагонетка рванёт к камню. Три верных подряд: самоцветы ×2, шесть подряд: ×3.</p>
@@ -595,42 +789,52 @@ function race(arg){
     <p class="muted race-help">Нажимай на левые, средние или правые рельсы. Знаешь ответ? Проведи пальцем вверх или нажми ↑, и вагонетка рванёт вперёд.</p>`;
   const cv = $('#rc'), ctx = cv.getContext('2d');
   function fit(){ const r = cv.getBoundingClientRect(), d = window.devicePixelRatio||1; cv.width = Math.round(r.width*d); cv.height = Math.round(r.height*d); ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0); ctx.imageSmoothingEnabled = false; }
-  fit(); const ro = new ResizeObserver(fit); ro.observe(cv); cleanup.push(()=>ro.disconnect());
+  fit(); const ro = new ResizeObserver(fit); ro.observe(cv);
 
   function nextQ(){
-    let q; do { q = pickWeighted(pool,1)[0]; } while(last && fk(q.n,q.k)===last);
+    let q; do { q = pickWeighted(pool,1)[0]; } while(last && pool.length>1 && fk(q.n,q.k)===last);
     last = fk(q.n,q.k); return {...q, ans:q.n*q.k, flip:Math.random()<0.4};
   }
-  function spawn(){ const q = nextQ(); wave = {q, vals:shuffle([q.ans, ...distractors(q.n,q.k)]), y:-40, hit:null}; }
-  function burst(x, y, colors, cnt=22){
-    for(let i=0;i<cnt;i++){ const a=Math.random()*Math.PI*2, s=80+Math.random()*220; parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-120,life:0.8,c:colors[i%colors.length]}); }
-  }
+  function spawn(){ const q = nextQ(); wave = {q, vals:shuffle([q.ans, ...distractors(q.n,q.k)]), y:-40, hit:null, kinds:[0,1,2].map(()=>(Math.random()*4)|0)}; }
   function resolve(){
-    const q = wave.q, f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0}), val = wave.vals[lane];
+    const q = wave.q, f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0}), val = wave.vals[lane], x = LX[lane], y = CY-34;
     done++;
     if(val===q.ans){
       wave.hit = 'ok'; right++; combo++; f.ok++;
       const was = mult; mult = combo>=6 ? 3 : combo>=3 ? 2 : 1;
       const g = 2*mult; addGems(g);
-      burst(LX[lane], CY-30, ['#5fd3c6','#c9fff6','#f7c548']);
+      spawnParts(parts, x, y, 16, RAMP.stone, {speed:230, size:2*P, g:900, life:.8});
+      spawnParts(parts, x, y, 22, RAMP.gem, {speed:260, life:.7});
+      spawnParts(parts, x, y, 10, RAMP.fire, {speed:180, up:true, life:.5});
+      gemsFly.push({sx:x, sy:y, t:0, kind: mult>1 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan'});
       chime(Math.min(9, combo)); if(mult>was) tone(1568,0.4,0.12,'sine',0.1);
       flash = {text: mult>was ? `Серия! Самоцветы ×${mult}` : `+${g}`, color:'#5fd3c6', t:0.7, small: mult===was};
       v = Math.min(VMAX, v*1.07); pause = 0.35;
     } else {
       wave.hit = 'bad'; f.bad++; crashes++; combo = 0; mult = 1;
-      if(shield){ shield = false; flash = {text:'Бип защитил!', sub:`${q.n} × ${q.k} = ${q.ans}`, color:'#5ff0ff', t:1.6}; tone(880,0.3,0.12,'square'); }
-      else { hearts--; shake = 0.45; thud(); setTimeout(thud,90); flash = {text:`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ${q.ans}`, sub:'Запомни и едем дальше', color:'#f7c548', t:1.6}; }
-      burst(LX[lane], CY-30, ['#6e6052','#9a8874','#40342a'], 16);
+      spawnParts(parts, x, y, 26, RAMP.stone, {speed:320, size:2*P, g:900, life:.9});
+      spawnParts(parts, x, y+20, 14, RAMP.dust, {speed:90, g:-30, life:1.1, size:2*P});
+      if(shield){ shield = false; spawnParts(parts, cx+50, CY-30, 20, RAMP.gem, {speed:200}); flash = {text:'Бип защитил!', sub:`${q.n} × ${q.k} = ${q.ans}`, color:'#5ff0ff', t:1.6}; tone(880,0.3,0.12,'square'); }
+      else {
+        hearts--; shake = 0.45; red = 0.35; thud(); setTimeout(thud,90);
+        spawnParts(parts, 19+hearts*24, 19, 12, RAMP.hurt, {speed:120, life:.6});
+        flash = {text:`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ${q.ans}`, sub:'Запомни и едем дальше', color:'#f7c548', t:1.6};
+      }
       v = Math.max(VMIN, v*0.8); pause = 1.6;
     }
     save();
   }
   function update(dt){
-    const bk = boost && wave && !wave.hit ? 4 : 1;
-    scroll += v*bk*dt*(wave && wave.hit==='bad' ? 0.15 : 1);
+    clock += dt;
+    const bk = boost && wave && !wave.hit ? 4 : 1, sp = v*bk*(wave && wave.hit==='bad' ? 0.15 : 1);
+    scroll += sp*dt;
     cx += (LX[lane]-cx)*Math.min(1, dt*16);
-    if(shake>0) shake -= dt;
+    if(shake>0) shake -= dt; if(red>0) red -= dt;
     if(flash){ flash.t -= dt; if(flash.t<=0) flash = null; }
+    for(const m of motes){ m.y += (sp*0.35 - 12)*dt; if(m.y>H) m.y -= H; if(m.y<0) m.y += H; }
+    if(bk>1 || Math.random()<0.04){ for(const wx of [cx-18, cx+18]) spawnParts(parts, wx, CY+30, bk>1?2:1, RAMP.fire, {speed:120, vy:260, lift:0, g:300, life:.35}); }
+    for(const f of gemsFly){ f.t += dt/0.7; if(f.t>=1) spawnParts(parts, W-73, 50, 10, RAMP.gem, {speed:120, life:.4}); }
+    gemsFly = gemsFly.filter(f=>f.t<1);
     if(pause>0){
       if(wave && wave.hit==='ok') wave.y += v*dt;
       pause -= dt;
@@ -643,86 +847,66 @@ function race(arg){
     }
     if(wave){ wave.y += v*bk*dt; if(!wave.hit && wave.y >= CY-34){ boost = false; resolve(); } }
   }
-  function rock(x, y, val, state){
-    const base = state==='good' ? '#5fd3c6' : state==='bad' ? '#e3644d' : '#6e6052';
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x-38, y-22, 80, 52);
-    ctx.fillStyle = base; ctx.fillRect(x-42, y-28, 84, 54);
-    ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fillRect(x-42, y-28, 84, 6); ctx.fillRect(x-42, y-28, 6, 54);
-    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(x-42, y+20, 84, 6); ctx.fillRect(x+36, y-28, 6, 54);
-    ctx.fillStyle = '#221a14'; ctx.font = '700 30px "Balsamiq Sans", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(val, x, y);
-  }
   function draw(){
     ctx.save();
-    if(shake>0) ctx.translate((Math.random()-.5)*16*shake, (Math.random()-.5)*16*shake);
-    ctx.fillStyle = '#1b1511'; ctx.fillRect(-20,-20,W+40,H+40);
-    // стены
-    for(const sx of [0, W-22]){
-      ctx.fillStyle = '#2b231c'; ctx.fillRect(sx, -20, 22, H+40);
-      ctx.fillStyle = '#40342a';
-      for(let y=(scroll*1.0)%48-48; y<H; y+=48){ ctx.fillRect(sx+3, y, 16, 18); ctx.fillRect(sx+3, y+24, 9, 16); }
+    if(shake>0) ctx.translate(snap((Math.random()-.5)*16*shake), snap((Math.random()-.5)*16*shake));
+    ctx.fillStyle = '#140f0c'; ctx.fillRect(-20,-20,W+40,H+40);
+    const fh = floorT.height*P; for(let y=(scroll%fh)-fh; y<H; y+=fh) ctx.drawImage(floorT, 0, snap(y), W, fh);
+    const wh = wallT.height*P, ww = wallT.width*P;
+    for(let y=(scroll%wh)-wh; y<H; y+=wh){
+      ctx.drawImage(wallT, 0, snap(y), ww, wh); ctx.drawImage(wallT, W-ww, snap(y), ww, wh);
+      const tile = Math.round((scroll-y)/wh)*1.37;   // у каждой плитки стены свой ритм мерцания
+      twinkle(ctx, 15, y+21, clock*1.1+tile); twinkle(ctx, W-15, y+81, clock*0.9+tile*1.9+1.3);
     }
-    // факелы
     for(let y=(scroll%300)-300; y<H+40; y+=300){
-      for(const [tx,ty] of [[11,y],[W-11,y+150]]){
-        const g = ctx.createRadialGradient(tx,ty,2,tx,ty,70+Math.random()*6); g.addColorStop(0,'rgba(242,179,71,.55)'); g.addColorStop(1,'rgba(242,179,71,0)');
-        ctx.fillStyle = g; ctx.fillRect(tx-80,ty-80,160,160); ctx.fillStyle = '#ffd36a'; ctx.fillRect(tx-4,ty-6,8,10);
-      }
+      for(const [tx,ty] of [[33,y+60],[W-33,y+210]]){ glow(ctx, tx, ty+6); blit(ctx, torchSpr(((clock*9)|0)%3), tx-10, ty-12); }
     }
-    // рельсы
     for(const x of LX){
-      ctx.fillStyle = '#4a3526';
-      for(let y=(scroll%34)-34; y<H; y+=34) ctx.fillRect(x-38, y, 76, 9);
-      ctx.fillStyle = '#9a8a78'; ctx.fillRect(x-31, 0, 5, H); ctx.fillRect(x+26, 0, 5, H);
+      for(let y=(scroll%36)-36; y<H; y+=36){
+        const sy = snap(y);
+        ctx.fillStyle = '#4a3526'; ctx.fillRect(snap(x-39), sy, 78, 9);
+        ctx.fillStyle = '#6b4a32'; ctx.fillRect(snap(x-39), sy, 78, 3);
+        ctx.fillStyle = '#2e2018'; ctx.fillRect(snap(x-39), sy+6, 78, 3);
+        ctx.fillStyle = '#1a120c'; ctx.fillRect(snap(x-33), sy+3, 3, 3); ctx.fillRect(snap(x+30), sy+3, 3, 3);
+      }
+      ctx.fillStyle = '#5a4e44'; ctx.fillRect(snap(x-30),0,6,H); ctx.fillRect(snap(x+24),0,6,H);
+      ctx.fillStyle = '#c9b9a5'; ctx.fillRect(snap(x-30),0,3,H); ctx.fillRect(snap(x+24),0,3,H);
     }
-    // полосы скорости при ускорении
-    if(boost && wave && !wave.hit){ ctx.fillStyle = 'rgba(244,232,211,.25)'; for(let i=0;i<14;i++){ const x = 30+((i*53+scroll*0.3)%300), y = (i*97+scroll*2)%H; ctx.fillRect(x, y, 2, 40); } }
-    // камни
+    ctx.fillStyle = 'rgba(255,230,180,.35)';
+    for(const m of motes) if(Math.sin(clock*2+m.ph)>0) ctx.fillRect(snap(m.x), snap(m.y), P, P);
+    if(boost && wave && !wave.hit){ ctx.fillStyle = 'rgba(244,232,211,.3)'; for(let i=0;i<16;i++){ const x = 30+((i*53+scroll*0.3)%300), y = (i*97+scroll*2)%H; ctx.fillRect(snap(x), snap(y), P, 45); } }
     if(wave){
       wave.vals.forEach((val,i)=>{
         if(wave.hit==='ok' && i===lane) return;
-        let st = null;
-        if(wave.hit==='bad') st = val===wave.q.ans ? 'good' : i===lane ? 'bad' : null;
-        rock(LX[i], wave.y, val, st);
+        const good = wave.hit==='bad' && val===wave.q.ans, isBad = wave.hit==='bad' && i===lane;
+        if(isBad) return;
+        const x = LX[i], y = wave.y;
+        ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(snap(x-39), snap(y-21), 84, 54);
+        ctx.drawImage(good ? crys : stones[wave.kinds[i]], snap(x-42), snap(y-27), 84, 54);
+        drawNum(ctx, val, x, y, good ? '#0d3b3f' : '#221a14');
+        if(good) twinkle(ctx, x+30, y-18, clock*2);
       });
     }
-    // вагонетка с гномом
-    const bob = Math.sin(scroll/9)*1.5;
-    drawArt(ctx, ART.gnome.slice(0,11), {R:t.cap,S:'#f0c9a0',K:'#2a1d14',N:'#e39a7a',W:'#ece6dc'}, cx-24, CY-56+bob, 4);
-    if(shield) drawArt(ctx, ART.robot.slice(0,9), PAL.robot, cx+30, CY-58+bob, 3);
-    drawArt(ctx, ART.cart.slice(2), PAL.cart, cx-42, CY-14+bob, 7);
-    // искры
-    for(const p of parts){ ctx.globalAlpha = Math.max(0,p.life/0.8); ctx.fillStyle = p.c; ctx.fillRect(p.x-3,p.y-3,6,6); }
-    ctx.globalAlpha = 1;
+    const bob = snap(Math.sin(scroll/9)*2);
+    blit(ctx, headS, cx-24, CY-50+bob);
+    if(shield) blit(ctx, botS, cx+33, CY-45+bob);
+    blit(ctx, cartS, cx-33, CY-12+bob);
+    drawParts(ctx, parts);
+    for(const f of gemsFly){
+      const e = f.t, tx = W-73, ty = 50, mx = (f.sx+tx)/2, my = Math.min(f.sy,ty)-60;
+      const ix = (1-e)*(1-e)*f.sx + 2*(1-e)*e*mx + e*e*tx, iy = (1-e)*(1-e)*f.sy + 2*(1-e)*e*my + e*e*ty;
+      const g = gemSpr(f.kind), sw = Math.max(P, Math.abs(Math.cos(f.t*10))*g.width*P);
+      ctx.drawImage(g, snap(ix-sw/2), snap(iy-g.height*1.5), sw, g.height*P);
+    }
     ctx.restore();
-    // табло
-    ctx.fillStyle = 'rgba(20,15,12,.88)'; ctx.fillRect(0,0,W,74);
-    for(let i=0;i<hearts;i++) drawArt(ctx, HEART, {R:'#e3644d'}, 10+i*26, 12, 3);
-    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '700 20px "Balsamiq Sans", sans-serif';
-    if(mult>1){ ctx.fillStyle = '#f7c548'; ctx.fillText('×'+mult, W-12, 22); }
-    ctx.fillStyle = '#5fd3c6'; ctx.fillText(`${right}/${WAVES}`, W-12, 52);
-    if(wave){
-      const q = wave.q;
-      ctx.textAlign = 'center'; ctx.fillStyle = '#f4e8d3'; ctx.font = '700 36px "Balsamiq Sans", sans-serif';
-      ctx.fillText(`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ?`, W/2, 40);
-    }
-    ctx.fillStyle = '#40342a'; ctx.fillRect(0,74,W,7);
-    ctx.fillStyle = '#f2b347'; ctx.fillRect(0,74,W*done/WAVES,7);
-    if(flash){
-      ctx.globalAlpha = Math.min(1, flash.t*3);
-      ctx.textAlign = 'center';
-      if(!flash.small){ ctx.fillStyle = 'rgba(20,15,12,.85)'; ctx.fillRect(30, 220, W-60, flash.sub?110:70); }
-      ctx.fillStyle = flash.color; ctx.font = `700 ${flash.small?30:38}px "Balsamiq Sans", sans-serif`;
-      ctx.fillText(flash.text, W/2, flash.small ? CY-90 : 258);
-      if(flash.sub){ ctx.fillStyle = '#bba98f'; ctx.font = '700 20px "Balsamiq Sans", sans-serif'; ctx.fillText(flash.sub, W/2, 302); }
-      ctx.globalAlpha = 1;
-    }
+    if(red>0){ ctx.fillStyle = `rgba(227,60,40,${red*0.6})`; ctx.fillRect(0,0,W,H); }
+    drawHud(ctx, W, {hearts, maxHearts, mult, right, total:WAVES, done, q: wave && wave.q, clock});
+    drawFlash(ctx, W, flash, 262, CY-90);
   }
   function frame(ts){
     const dt = Math.min(0.05, (ts-(lastT||ts))/1000); lastT = ts;
     if(running && !document.hidden) update(dt);
-    for(const p of parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=500*dt; p.life-=dt; }
-    parts = parts.filter(p=>p.life>0);
+    parts = stepParts(parts, dt);
     draw();
     if(!over) raf = requestAnimationFrame(frame);
   }
@@ -742,7 +926,7 @@ function race(arg){
   cv.addEventListener('pointerup', ()=> swipe = null);
   const onKey = e=>{ if(e.key==='ArrowLeft'){ setLane(lane-1); e.preventDefault(); } if(e.key==='ArrowRight'){ setLane(lane+1); e.preventDefault(); } if(e.key==='ArrowUp'){ goFast(); e.preventDefault(); } };
   document.addEventListener('keydown', onKey);
-  cleanup.push(()=>{ over = true; cancelAnimationFrame(raf); document.removeEventListener('keydown', onKey); });
+  cleanup.push(()=>{ over = true; cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); });
   $('#gobtn').onclick = ()=>{ $('#rs').hidden = true; running = true; spawn(); chime(0); chime(4); };
   document.fonts?.ready.then(()=>{ if(!over) draw(); });
   raf = requestAnimationFrame(frame);
@@ -895,34 +1079,55 @@ function echo(n){
 }
 
 /* ---------- 6. Броски: пауки-воришки ---------- */
-const SPIDER = ["..L.....L..","L..L...L..L",".L..BBB..L.","..LBBBBBL..","LLBBRBRBBLL","..LBBBBBL..",".L..BBB..L.","L..L...L..L"];
-const SPIDER_PAL = {B:'#7a5c8f', R:'#ff5a5a', L:'#b39cc4'};
-function drawHud(ctx, W, {hearts, mult, right, total, done, q}){
-  ctx.fillStyle = 'rgba(20,15,12,.88)'; ctx.fillRect(0,0,W,74);
-  for(let i=0;i<hearts;i++) drawArt(ctx, HEART, {R:'#e3644d'}, 10+i*26, 12, 3);
-  ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '700 20px "Balsamiq Sans", sans-serif';
-  if(mult>1){ ctx.fillStyle = '#f7c548'; ctx.fillText('×'+mult, W-12, 22); }
-  ctx.fillStyle = '#5fd3c6'; ctx.fillText(`${right}/${total}`, W-12, 52);
-  if(q){ ctx.textAlign = 'center'; ctx.fillStyle = '#f4e8d3'; ctx.font = '700 36px "Balsamiq Sans", sans-serif';
-    ctx.fillText(`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ?`, W/2, 40); }
-  ctx.fillStyle = '#40342a'; ctx.fillRect(0,74,W,7);
-  ctx.fillStyle = '#f2b347'; ctx.fillRect(0,74,W*done/total,7);
+const SPIDER = [
+  [".L...L....L...L.","..L...L..L...L..","L..L..oooo..L..L",".L..LobhhboL..L.","..LLobBhhBboLL..","LLLobBRBBRBboLLL","...obBrBBrBbo...","LLLobBBBBBBboLLL","..LLobBBBBboLL..",".L..LobbbboL..L.","L..L..oooo..L..L","..L..........L.."],
+  ["L..L........L..L",".L..L......L..L.","..L...oooo...L..",".L..LobhhboL..L.","..LLobBhhBboLL..","LLLobBRBBRBboLLL","...obBrBBrBbo...","LLLobBBBBBBboLLL","..LLobBBBBboLL..","..L.LobbbboL.L..",".L..L.oooo.L..L.","L..L........L..L"],
+];
+const SPIDER_PAL = {o:'#120c14', B:'#6b4f80', b:'#4a3560', h:'#a688c0', R:'#ff4a4a', r:'#ffd0d0', L:'#9a86ad'};
+const spiderSpr = f => sprCanvas(SPIDER[f], SPIDER_PAL, 'spider'+f);
+function caveBackdrop(){
+  const w = 120, h = 187, c = makeRock(w, h, 77), x = c.getContext('2d'), r = rng(99), tips = [], crystals = [];
+  for(let k=0;k<16;k++){
+    const rx = (r()*w)|0, ry = 30+(r()*140)|0, rw = 6+(r()*12)|0, rh = 4+(r()*6)|0;
+    x.fillStyle = '#231b15'; x.fillRect(rx,ry,rw,rh); x.fillStyle = '#2e241c'; x.fillRect(rx,ry,rw,1); x.fillStyle = '#120d0a'; x.fillRect(rx,ry+rh,rw,1);
+  }
+  for(let k=0;k<5;k++){
+    const gx = 6+(r()*108)|0, gy = 60+(r()*105)|0, pal = GEMS[['amethyst','cyan','amethyst','emerald','cyan'][k]];
+    for(let s=-1;s<=1;s++){
+      const hh = 4+(r()*5)|0 + (s===0?3:0), sx = gx+s*3;
+      x.fillStyle = pal.D; x.fillRect(sx, gy-hh, 2, hh); x.fillStyle = pal.l; x.fillRect(sx, gy-hh, 1, hh);
+      x.fillStyle = pal.L; x.fillRect(sx, gy-hh-1, 1, 1);
+    }
+    x.fillStyle = '#2e241c'; x.fillRect(gx-5, gy, 11, 1);
+    crystals.push({x:gx*P, y:(gy-10)*P, ph:r()*3});
+  }
+  x.fillStyle = '#2b231c'; x.fillRect(0, 25, w, 8); x.fillStyle = '#40342a'; x.fillRect(0, 32, w, 1);
+  for(let sx=2; sx<w-3; sx+=6+(r()*6|0)){
+    const len = 4+(r()*10)|0;
+    for(let j=0;j<len;j++){ const half = Math.max(0, Math.round((1-j/len)*2)); x.fillStyle = '#2b231c'; x.fillRect(sx-half, 33+j, half*2+1, 1); x.fillStyle = '#40342a'; x.fillRect(sx-half, 33+j, 1, 1); }
+    tips.push({x:sx*P+1, y:(33+len)*P});
+  }
+  x.fillStyle = '#2b231c'; x.fillRect(0, 176, w, 11); x.fillStyle = '#40342a'; x.fillRect(0, 176, w, 1);
+  for(let k=0;k<18;k++){ const px_ = (r()*w)|0, py = 178+(r()*8)|0; x.fillStyle = r()<.5 ? '#3a2f26' : '#1f1813'; x.fillRect(px_, py, 2, 1); }
+  return {c, tips, crystals};
 }
 function throwGame(arg){
-  const big = arg==='big', t = big ? TABLES[(Math.random()*4)|0] : tableOf(arg);
-  const WAVES = big ? 20 : 15, W = 360, H = 560, GX = 180, GY = 520, G = 700, SPEED = 950, BITE = GY-130;
-  const pool = big ? TABLES.flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k}))) : [2,3,4,5,6,7,8,9].map(k=>({n:arg,k}));
-  const start = S.gems;
-  let hearts = 3 + (S.gems>=260 ? 1 : 0), shield = S.gems>=180, combo = 0, mult = 1, right = 0, done = 0, slips = 0;
-  let wave = null, last = null, axe = null, aim = null, parts = [], drops = [], flash = null, pause = 0, shake = 0;
-  let running = false, over = false, raf = 0, lastT = 0, clock = 0;
+  const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
+  const WAVES = big ? 20 : 15, W = 360, H = 560, GX = 180, GY = 519, G = 700, SPEED = 950, BITE = GY-130;
+  const pool = (big ? HARD : [t]).flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k})));
+  const start = S.gems, maxHearts = 3 + (S.gems>=260 ? 1 : 0);
+  let hearts = maxHearts, shield = S.gems>=180, combo = 0, mult = 1, right = 0, done = 0, slips = 0;
+  let wave = null, last = null, axe = null, aim = null, parts = [], flyers = [], gemsFly = [], drips = [], flash = null, pause = 0, shake = 0, red = 0, hurt = 0;
+  let running = false, over = false, raf = 0, lastT = 0, clock = 0, dripT = 1;
+  const bg = caveBackdrop(), gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+t.n), pickS = sprCanvas(ART.pick, PAL.pick, 'pick'), botS = sprCanvas(ART.robot, PAL.robot, 'robot');
+  const stones = [0,1,2,3].map(i=>makeStone(24,15,60+i,STONE_PAL,true,true)), crys = makeStone(24,15,8,CRYS_PAL,false,true), bad = makeStone(24,15,13,BAD_PAL,false,true);
 
   app.innerHTML = `${bar(big ? 'Броски в Большой шахте' : 'Броски с гномом '+t.name)}
     <div class="race"><canvas id="rc" aria-label="Поле бросков"></canvas>
       <div class="race-start" id="rs">
-        ${px(SPIDER, SPIDER_PAL)}
+        ${px(SPIDER[0], SPIDER_PAL)}
         <h2>Пауки-воришки!</h2>
-        <p>Пауки утащили камни с ответами и спускаются с потолка. Брось кирку в паука с <b>правильным</b> ответом, и он уронит самоцвет.</p>
+        <p>Пауки утащили камни с ответами и спускаются с потолка. Брось кирку в паука с <b>правильным</b> ответом: паук улетит, а камень расколется на алмаз.</p>
         <p class="muted">Проведи пальцем вверх в сторону паука или просто нажми на него. Пауки потихоньку спускаются: не успеешь, и паук укусит гнома.</p>
         ${shield ? '<p style="color:var(--gem)">Робот Бип рядом и один раз защитит от ошибки.</p>' : ''}
         <button class="pbtn" id="gobtn">Бросать!</button>
@@ -934,7 +1139,7 @@ function throwGame(arg){
   fit(); const ro = new ResizeObserver(fit); ro.observe(cv);
 
   function nextQ(){
-    let q; do { q = pickWeighted(pool,1)[0]; } while(last && fk(q.n,q.k)===last);
+    let q; do { q = pickWeighted(pool,1)[0]; } while(last && pool.length>1 && fk(q.n,q.k)===last);
     last = fk(q.n,q.k); return {...q, ans:q.n*q.k, flip:Math.random()<0.4};
   }
   function spawn(){
@@ -942,36 +1147,46 @@ function throwGame(arg){
     // время спуска до гнома: сначала 12 секунд, с каждой удачей пауки быстрее (не меньше 4,5 с)
     const T = Math.max(4.5, (big ? 11 : 12) - combo*0.5 - right*0.15);
     wave = {q, res:null, amp:Math.min(34, 6+right*1.6), vy:(BITE+70)/T,
-      spiders: vals.map((val,i)=>({ax:xs[i], y:-70-Math.random()*30, ph:Math.random()*6, val, st:'down', good:false}))};
+      spiders: vals.map((val,i)=>({ax:xs[i], y:-70-Math.random()*30, ph:Math.random()*6, val, st:'down', good:false, kind:(Math.random()*4)|0}))};
   }
   const sx = s => s.ax + Math.sin(clock*1.7+s.ph)*wave.amp;
-  function burst(x, y, colors, cnt=22){
-    for(let i=0;i<cnt;i++){ const a=Math.random()*Math.PI*2, s=80+Math.random()*220; parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-120,life:0.8,c:colors[i%colors.length]}); }
-  }
   function miss(text){
     const q = wave.q, f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0});
     f.bad++; slips++; combo = 0; mult = 1;
-    wave.spiders.forEach(s=>{ s.st = 'up'; if(s.val===q.ans) s.good = true; });
+    wave.spiders.forEach(s=>{ if(s.st!=='bite') s.st = 'up'; if(s.val===q.ans) s.good = true; });
     flash = {text:`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ${q.ans}`, sub:text, color:'#f7c548', t:1.8};
     pause = 1.9; save();
   }
+  function loseHeart(){
+    hearts--; shake = 0.5; red = 0.35; hurt = 0.7; thud(); tone(110,0.4,0.2,'sawtooth');
+    spawnParts(parts, 19+hearts*24, 19, 14, RAMP.hurt, {speed:130, life:.6});
+  }
   function resolve(s){
-    const q = wave.q, f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0}), x = sx(s);
+    const q = wave.q, f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0}), x = sx(s), sy = s.y+40;
     wave.res = s; done++; axe = null;
     if(s.val===q.ans){
       right++; combo++; f.ok++;
       const was = mult; mult = combo>=6 ? 3 : combo>=3 ? 2 : 1;
       const g = 2*mult; addGems(g);
-      drops.push({x, y:s.y+34, vy:-120});
-      wave.spiders.forEach(sp=>sp.st = 'up');
-      burst(x, s.y+34, ['#5fd3c6','#c9fff6','#f7c548']);
+      // паук кувырком улетает, камень раскалывается, из него вылетает алмаз
+      flyers.push({x, y:s.y, vx:(x<GX?-1:1)*(140+Math.random()*160), vy:-420-Math.random()*140, rot:0, vr:(Math.random()<.5?-1:1)*(10+Math.random()*8)});
+      s.st = 'gone';
+      wave.spiders.forEach(sp=>{ if(sp!==s) sp.st = 'up'; });
+      spawnParts(parts, x, sy, 18, RAMP.stone, {speed:260, size:2*P, g:900, life:.9});
+      spawnParts(parts, x, sy, 26, RAMP.gem, {speed:300, life:.8});
+      spawnParts(parts, x, s.y, 14, RAMP.fire, {speed:220, life:.5});
+      spawnParts(parts, x, s.y, 8, RAMP.dust, {speed:80, g:-40, life:.9, size:2*P});
+      gemsFly.push({sx:x, sy, t:0, kind: mult>1 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan'});
       chime(Math.min(9, combo)); if(mult>was) tone(1568,0.4,0.12,'sine',0.1);
+      tone(220, 0.15, 0.1, 'square'); tone(880, 0.12, 0.05, 'square', 0.04);
       flash = {text: mult>was ? `Серия! Самоцветы ×${mult}` : `+${g}`, color:'#5fd3c6', t:0.8, small: mult===was};
       pause = 1.0; save();
     } else {
-      s.hitBad = true; burst(x, s.y+34, ['#6e6052','#9a8874'], 14);
-      if(shield){ shield = false; tone(880,0.3,0.12,'square'); miss('Бип защитил! Запомни ответ'); }
-      else { hearts--; shake = 0.45; thud(); setTimeout(thud, 90); miss('Запомни и бросай дальше'); }
+      s.hitBad = true; shake = 0.2;
+      spawnParts(parts, x, sy, 14, RAMP.stone, {speed:200, size:2*P, g:900, life:.7});
+      spawnParts(parts, x, sy, 8, RAMP.hurt, {speed:160, life:.4});
+      if(shield){ shield = false; tone(880,0.3,0.12,'square'); spawnParts(parts, GX-60, GY-40, 20, RAMP.gem, {speed:200}); miss('Бип защитил! Запомни ответ'); }
+      else { loseHeart(); miss('Не тот паук. Запомни и бросай дальше'); }
     }
   }
   function launch(tx, ty){
@@ -988,16 +1203,24 @@ function throwGame(arg){
   }
   function update(dt){
     clock += dt;
-    if(shake>0) shake -= dt;
+    if(shake>0) shake -= dt; if(red>0) red -= dt; if(hurt>0) hurt -= dt;
     if(flash){ flash.t -= dt; if(flash.t<=0) flash = null; }
-    for(const d of drops){ d.vy += 900*dt; d.y += d.vy*dt; d.x += (GX-d.x)*Math.min(1, dt*3); }
-    drops = drops.filter(d=>d.y < GY-20);
+    for(const f of flyers){ f.vy += 900*dt; f.x += f.vx*dt; f.y += f.vy*dt; f.rot += f.vr*dt; if(Math.random()<.5) parts.push({x:f.x, y:f.y, vx:0, vy:0, life:.3, max:.3, ramp:RAMP.dust, g:0, s:P}); }
+    flyers = flyers.filter(f=>f.y<H+80);
+    for(const f of gemsFly){ f.t += dt/0.75; if(f.t>=1) spawnParts(parts, W-73, 50, 10, RAMP.gem, {speed:120, life:.4}); }
+    gemsFly = gemsFly.filter(f=>f.t<1);
+    dripT -= dt;
+    if(dripT<=0){ dripT = 0.8+Math.random()*1.6; const tip = bg.tips[(Math.random()*bg.tips.length)|0]; drips.push({x:tip.x, y:tip.y, vy:0}); }
+    for(const d of drips){ d.vy += 700*dt; d.y += d.vy*dt; if(d.y>=GY+8){ d.done = true; spawnParts(parts, d.x, GY+6, 5, RAMP.water, {speed:90, up:true, spread:1.6, life:.4, g:700}); } }
+    drips = drips.filter(d=>!d.done);
     if(axe){
       axe.vy += G*dt; axe.x += axe.vx*dt; axe.y += axe.vy*dt; axe.rot += dt*16;
+      parts.push({x:axe.x, y:axe.y, vx:0, vy:0, life:.25, max:.25, ramp:RAMP.gem, g:0, s:P});
       if(wave && !wave.res){
         for(const s of wave.spiders){
+          if(s.st!=='down') continue;
           const x = sx(s);
-          if(Math.abs(axe.x-x)<40 && axe.y>s.y-22 && axe.y<s.y+58){ resolve(s); break; }
+          if(Math.abs(axe.x-x)<40 && axe.y>s.y-24 && axe.y<s.y+64){ resolve(s); break; }
         }
       }
       if(axe && (axe.y>H+40 || axe.x<-40 || axe.x>W+40 || axe.y<-80)){ axe = null; if(wave && !wave.res) flash = {text:'Мимо!', color:'#bba98f', t:0.6, small:true}; }
@@ -1006,6 +1229,7 @@ function throwGame(arg){
     for(const s of wave.spiders){
       if(s.st==='down' && !wave.res) s.y += wave.vy*dt;
       else if(s.st==='up') s.y -= 340*dt;
+      else if(s.st==='bite'){ s.lunge += dt; s.y = s.by + Math.sin(Math.min(1, s.lunge/0.25)*Math.PI)*55; if(s.lunge>0.25) s.st = 'up'; }
     }
     if(pause>0){
       pause -= dt;
@@ -1018,77 +1242,65 @@ function throwGame(arg){
     }
     const biter = !wave.res && wave.spiders.find(s=>s.y>=BITE);
     if(biter){
-      wave.res = 'bite'; done++;
-      if(shield){ shield = false; tone(880,0.3,0.12,'square'); miss('Бип отогнал паука!'); }
-      else { hearts--; shake = 0.5; thud(); tone(110,0.4,0.2,'sawtooth'); miss('Паук укусил! Запомни ответ'); }
+      wave.res = 'bite'; done++; biter.st = 'bite'; biter.by = biter.y; biter.lunge = 0;
+      spawnParts(parts, GX, GY-50, 16, RAMP.fire, {speed:200, life:.4});
+      if(shield){ shield = false; tone(880,0.3,0.12,'square'); spawnParts(parts, GX-60, GY-40, 20, RAMP.gem, {speed:200}); miss('Бип отогнал паука!'); }
+      else { loseHeart(); miss('Паук укусил! Запомни ответ'); }
     }
   }
-  function stone(x, y, val, st){
-    const base = st==='good' ? '#5fd3c6' : st==='bad' ? '#e3644d' : '#6e6052';
-    ctx.fillStyle = base; ctx.fillRect(x-36, y-22, 72, 44);
-    ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fillRect(x-36, y-22, 72, 5);
-    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(x-36, y+17, 72, 5);
-    ctx.fillStyle = '#221a14'; ctx.font = '700 28px "Balsamiq Sans", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(val, x, y+1);
-  }
+  function drawSpider(x, y, frame){ blit(ctx, spiderSpr(frame), x-24, y-18); }
   function draw(){
     ctx.save();
-    if(shake>0) ctx.translate((Math.random()-.5)*16*shake, (Math.random()-.5)*16*shake);
-    ctx.fillStyle = '#1b1511'; ctx.fillRect(-20,-20,W+40,H+40);
-    // свод со сталактитами и факелы
-    ctx.fillStyle = '#2b231c'; ctx.fillRect(-20, 74, W+40, 22);
-    for(let x=6; x<W; x+=38){ const h = 14 + ((x*7)%23); ctx.fillRect(x, 92, 14, h); ctx.fillRect(x+4, 92+h, 6, 8); }
-    for(const [tx,ty] of [[16,300],[W-16,380]]){
-      const g = ctx.createRadialGradient(tx,ty,2,tx,ty,90+Math.random()*8); g.addColorStop(0,'rgba(242,179,71,.5)'); g.addColorStop(1,'rgba(242,179,71,0)');
-      ctx.fillStyle = g; ctx.fillRect(tx-100,ty-100,200,200); ctx.fillStyle = '#ffd36a'; ctx.fillRect(tx-4,ty-6,8,10);
-    }
-    ctx.fillStyle = '#2b231c'; ctx.fillRect(-20, GY+8, W+40, 60);
-    // пауки
+    if(shake>0) ctx.translate(snap((Math.random()-.5)*16*shake), snap((Math.random()-.5)*16*shake));
+    ctx.drawImage(bg.c, 0, 0, W, bg.c.height*P);
+    for(const [tx,ty] of [[24,300],[W-24,380]]){ glow(ctx, tx, ty, 80); blit(ctx, torchSpr(((clock*9+tx)|0)%3), tx-10, ty-18); }
+    bg.crystals.forEach((c,k)=> twinkle(ctx, c.x, c.y, clock*1.2+c.ph+k));
+    ctx.fillStyle = '#9ad4ff'; for(const d of drips) ctx.fillRect(snap(d.x), snap(d.y), P, 2*P);
     if(wave){
+      const low = Math.max(...wave.spiders.filter(s=>s.st==='down').map(s=>s.y), -999), near = Math.max(0, Math.min(1, (low-(BITE-160))/160));
+      if(!wave.res && near>0){ ctx.fillStyle = Math.sin(clock*14)>0 || near<0.6 ? `rgba(227,100,77,${0.25+near*0.6})` : 'rgba(227,100,77,.15)'; for(let x=0; x<W; x+=18) ctx.fillRect(x, snap(BITE+60), 9, P); }
       for(const s of wave.spiders){
-        if(s.y < -90) continue;
-        const x = sx(s);
-        ctx.strokeStyle = 'rgba(220,210,230,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(s.ax, 80); ctx.lineTo(x, s.y-12); ctx.stroke();
-        drawArt(ctx, SPIDER, SPIDER_PAL, x-22, s.y-16, 4);
-        if(!(wave.res===s && s.val===wave.q.ans)) stone(x, s.y+34, s.val, s.good ? 'good' : s.hitBad ? 'bad' : null);
+        if(s.st==='gone' || s.y < -90) continue;
+        const x = sx(s), frame = ((clock*(s.st==='up'?16:6)+s.ph)|0)%2;
+        if(s.y-14>99){ ctx.strokeStyle = 'rgba(225,215,240,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(s.ax, 99); ctx.lineTo(x, s.y-14); ctx.stroke(); }
+        drawSpider(x, s.y, frame);
+        ctx.fillStyle = 'rgba(225,215,240,.6)'; ctx.fillRect(snap(x-15), snap(s.y+9), P/2, 9); ctx.fillRect(snap(x+15), snap(s.y+9), P/2, 9);
+        ctx.drawImage(s.good ? crys : s.hitBad ? bad : stones[s.kind], snap(x-36), snap(s.y+18), 72, 45);
+        drawNum(ctx, s.val, x, s.y+40, s.good ? '#0d3b3f' : '#221a14');
+        if(s.good) twinkle(ctx, x+27, s.y+21, clock*2);
       }
-      // черта укуса: краснеет, когда пауки близко
-      const low = Math.max(...wave.spiders.map(s=>s.y)), near = Math.max(0, Math.min(1, (low-(BITE-160))/160));
-      if(!wave.res && near>0){ ctx.fillStyle = `rgba(227,100,77,${0.15+near*0.5})`; for(let x=0; x<W; x+=16) ctx.fillRect(x, BITE+60, 9, 3); }
     }
-    for(const d of drops) drawArt(ctx, ART.gem, PAL.gem, d.x-15, d.y-12, 3);
-    // прицел
+    for(const f of flyers){
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot);
+      ctx.drawImage(spiderSpr(((clock*20)|0)%2), -24, -18, 48, 36); ctx.restore();
+    }
     if(aim && running && !axe){
       const tg = aimTarget(aim);
       if(tg && Math.hypot(aim.cx-aim.sx, aim.cy-aim.sy)>=20){
         const x0 = GX+18, y0 = GY-60, dx = tg[0]-x0, dy = tg[1]-y0, T = Math.max(0.18, Math.hypot(dx,dy)/SPEED), vx = dx/T, vy = dy/T-0.5*G*T;
-        ctx.fillStyle = 'rgba(244,232,211,.55)';
-        for(let k=1;k<=12;k++){ const tt = k*0.035; ctx.fillRect(x0+vx*tt-2, y0+vy*tt+0.5*G*tt*tt-2, 4, 4); }
+        for(let k=1;k<=12;k++){ const tt = k*0.035; ctx.fillStyle = k%2 ? '#f4e8d3' : '#bba98f'; ctx.fillRect(snap(x0+vx*tt), snap(y0+vy*tt+0.5*G*tt*tt), P, P); }
       }
     }
-    // гном
-    drawArt(ctx, ART.gnome, {R:t.cap,S:'#f0c9a0',K:'#2a1d14',N:'#e39a7a',W:'#ece6dc',C:t.coat,B:'#5a4030'}, GX-24, GY-60, 4);
-    if(shield) drawArt(ctx, ART.robot, PAL.robot, GX-80, GY-36, 3);
-    if(!axe) drawArt(ctx, ART.pick, PAL.pick, GX+14, GY-70, 3);
-    else { ctx.save(); ctx.translate(axe.x, axe.y); ctx.rotate(axe.rot); drawArt(ctx, ART.pick, PAL.pick, -15, -13, 3); ctx.restore(); }
-    for(const p of parts){ ctx.globalAlpha = Math.max(0,p.life/0.8); ctx.fillStyle = p.c; ctx.fillRect(p.x-3,p.y-3,6,6); }
-    ctx.globalAlpha = 1;
-    ctx.restore();
-    drawHud(ctx, W, {hearts, mult, right, total:WAVES, done, q: wave && wave.q});
-    if(flash){
-      ctx.globalAlpha = Math.min(1, flash.t*3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      if(!flash.small){ ctx.fillStyle = 'rgba(20,15,12,.85)'; ctx.fillRect(30, 250, W-60, flash.sub?110:70); }
-      ctx.fillStyle = flash.color; ctx.font = `700 ${flash.small?30:38}px "Balsamiq Sans", sans-serif`;
-      ctx.fillText(flash.text, W/2, flash.small ? GY-110 : 288);
-      if(flash.sub){ ctx.fillStyle = '#bba98f'; ctx.font = '700 20px "Balsamiq Sans", sans-serif'; ctx.fillText(flash.sub, W/2, 332); }
-      ctx.globalAlpha = 1;
+    if(!(hurt>0 && ((clock*16)|0)%2)) blit(ctx, gnomeS, GX-24, GY-60);
+    if(shield) blit(ctx, botS, GX-78, GY-39);
+    if(!axe) blit(ctx, pickS, GX+15, GY-69);
+    else { ctx.save(); ctx.translate(axe.x, axe.y); ctx.rotate(axe.rot); ctx.drawImage(pickS, -18, -18, 36, 36); ctx.restore(); }
+    drawParts(ctx, parts);
+    for(const f of gemsFly){
+      const e = f.t, tx = W-73, ty = 50, mx = (f.sx+tx)/2, my = Math.min(f.sy,ty)-80;
+      const ix = (1-e)*(1-e)*f.sx + 2*(1-e)*e*mx + e*e*tx, iy = (1-e)*(1-e)*f.sy + 2*(1-e)*e*my + e*e*ty;
+      const g = gemSpr(f.kind), sc = e<0.15 ? P*(1+ (0.15-e)*8) : P, sw = Math.max(P, Math.abs(Math.cos(f.t*10))*g.width*sc);
+      ctx.drawImage(g, snap(ix-sw/2), snap(iy-g.height*sc/2), sw, g.height*sc);
     }
+    ctx.restore();
+    if(red>0){ ctx.fillStyle = `rgba(227,60,40,${red*0.6})`; ctx.fillRect(0,0,W,H); }
+    drawHud(ctx, W, {hearts, maxHearts, mult, right, total:WAVES, done, q: wave && wave.q, clock});
+    drawFlash(ctx, W, flash, 290, GY-110);
   }
   function frame(ts){
     const dt = Math.min(0.05, (ts-(lastT||ts))/1000); lastT = ts;
     if(running && !document.hidden) update(dt);
-    for(const p of parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=500*dt; p.life-=dt; }
-    parts = parts.filter(p=>p.life>0);
+    parts = stepParts(parts, dt);
     draw();
     if(!over) raf = requestAnimationFrame(frame);
   }
@@ -1161,6 +1373,8 @@ function reward({title, stars, gained, line, again, next, crystalOf}){
   </div>`;
   document.body.appendChild(v);
   if(found.length) setTimeout(fanfare, 400);
+  const g = v.querySelector('.gain');
+  [0,250,500].forEach((d,i)=>setTimeout(()=>fx.burst(g, 26, i===1 ? RAMP.fire : RAMP.gem, {speed:380}), d));
 }
 
 go('home');
