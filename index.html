@@ -89,6 +89,7 @@ button:focus-visible{outline:3px solid var(--gem); outline-offset:2px}
 .race canvas{width:100%; height:100%; display:block; touch-action:none; border:3px solid var(--rock-2); background:var(--cave)}
 .race-start{position:absolute; inset:0; background:rgba(20,15,12,.9); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; padding:16px; font-size:16px; overflow:auto}
 .race-start .px{width:96px}
+.race-start .spider-img{width:110px; image-rendering:pixelated}
 .race-help{text-align:center; font-size:15px}
 .stage{background:var(--rock-2); border:0; padding:10px 6px; display:flex; flex-direction:column; align-items:center; gap:6px;
   box-shadow:inset -4px -4px 0 rgba(0,0,0,.35), inset 4px 4px 0 rgba(255,255,255,.07); min-height:72px}
@@ -212,7 +213,7 @@ h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:va
 .keys .key{aspect-ratio:3/2; min-height:0; background-size:100% 100%; image-rendering:pixelated}
 .key.num{color:transparent; font-size:0}
 .mine-wrap{grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr)}
-.shaft canvas{width:100%; max-width:min(340px, calc((100vh - 140px) * 0.571)); aspect-ratio:240/420; display:block; margin:0 auto; border:3px solid var(--rock-2); background:#100c09; image-rendering:pixelated}
+.shaft canvas{touch-action:none; cursor:grab; width:100%; max-width:min(340px, calc((100vh - 140px) * 0.571)); aspect-ratio:240/420; display:block; margin:0 auto; border:3px solid var(--rock-2); background:#100c09; image-rendering:pixelated}
 .mine-side{display:flex; flex-direction:column; gap:10px; min-width:0}
 .mine-side .qbox{padding:12px}
 /* пещера на главной */
@@ -642,14 +643,22 @@ function makeShaft(cv, t, rows){
   const tex = Array.from({length:rows+3}, (_,r)=>Array.from({length:5},(_,c)=>makeStone(16,16, 500+r*5+c, r<rows ? layerOf(r) : LAYERS[3], Math.random()<.35)));
   const air = makeRock(80, 60, 5), hole = makeRock(16, 16, 8);
   const gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+t.n), pickS = sprCanvas(ART.pick, PAL.pick, 'pick');
+  let gxN = W/2, userT = 0, manual = 0, drag = null;
   let row = 0, gy = TOP, camY = 0, clock = 0, parts = [], queue = [], anim = null, cracks = {}, glowK = 0, finaleCb = null, over = false, raf = 0, lastT = 0;
   const broken = new Set();
   function fit(){ const r = cv.getBoundingClientRect(), d = window.devicePixelRatio||1; cv.width = Math.round(r.width*d); cv.height = Math.round(r.height*d); ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0); ctx.imageSmoothingEnabled = false; }
   fit(); const ro = new ResizeObserver(fit); ro.observe(cv);
+  // шахту можно листать пальцем или колесом, чтобы посмотреть, как глубоко до кристалла
+  const clampCam = v => Math.max(0, Math.min(FLOOR + B + 6 - H, v));
+  cv.addEventListener('pointerdown', e=>{ drag = {y:e.clientY, cam:camY}; cv.setPointerCapture?.(e.pointerId); });
+  cv.addEventListener('pointermove', e=>{ if(!drag) return; const r = cv.getBoundingClientRect(); manual = clampCam(drag.cam - (e.clientY-drag.y)*H/r.height); userT = 2.5; });
+  cv.addEventListener('pointerup', ()=> drag = null); cv.addEventListener('pointercancel', ()=> drag = null);
+  cv.addEventListener('wheel', e=>{ e.preventDefault(); manual = clampCam((userT>0 ? manual : camY) + e.deltaY*0.6); userT = 2.5; }, {passive:false});
+  const whiteGem = sprCanvas(ART.gem, {W:'#fff',L:'#fff',l:'#fff',M:'#fff',D:'#fff',d:'#fff'}, 'gem-white');
   const toClient = (x,y) => { const r = cv.getBoundingClientRect(); return [r.left + x/W*r.width, r.top + (y-camY)/H*r.height]; };
   function next(){
     if(anim || !queue.length) return;
-    const cmd = queue.shift();
+    const cmd = queue.shift(); userT = 0;
     if(cmd.type==='dig' || cmd.type==='clang') anim = {type:'swing', t:0, then:cmd};
     else if(cmd.type==='finale') anim = {type:'finale', t:0, cb:cmd.cb};
   }
@@ -669,7 +678,7 @@ function makeShaft(cv, t, rows){
       spawnParts(parts, bx, by, 20, RAMP.gem, {speed:260, life:.7});
     }
     row++;
-    anim = {type:'fall', t:0, from:gy, to: row>=rows ? FLOOR : TOP + row*B};
+    anim = {type:'fall', t:0, from:gy, to: row>=rows ? FLOOR : TOP + row*B, fx:gxN, tx: row>=rows ? 42 : W/2};
   }
   function update(dt){
     clock += dt;
@@ -678,18 +687,20 @@ function makeShaft(cv, t, rows){
       if(anim.type==='swing' && anim.t>=0.22) strike(anim.then);
       else if(anim.type==='fall'){
         const dur = anim.to-anim.from > B*1.5 ? 0.6 : 0.3, e = Math.min(1, anim.t/dur);
-        gy = anim.from + (anim.to-anim.from)*e*e;
-        if(e>=1){ gy = anim.to; anim = null; spawnParts(parts, W/2, gy, 6, RAMP.dust, {speed:60, up:true, g:200, life:.4}); if(row>=rows) chime(7); }
+        gy = anim.from + (anim.to-anim.from)*e*e; gxN = anim.fx + (anim.tx-anim.fx)*e;
+        if(e>=1){ gy = anim.to; anim = null; spawnParts(parts, gxN, gy, 6, RAMP.dust, {speed:60, up:true, g:200, life:.4}); if(row>=rows) chime(7); }
       }
       else if(anim.type==='finale'){
         glowK = Math.min(1, anim.t/1.2);
-        if(Math.random()<0.5) spawnParts(parts, W/2+48+(Math.random()-.5)*40, FLOOR-30, 2, RAMP.gem, {speed:80, up:true, g:-40, life:1});
+        if(Math.random()<0.6) spawnParts(parts, W/2+(Math.random()-.5)*60, FLOOR-34, 2, RAMP.gem, {speed:90, up:true, g:-40, life:1});
         if(anim.t>=1.4){ const cb = anim.cb; anim = null; cb && cb(); }
       }
     }
     next();
-    const target = Math.max(0, Math.min(FLOOR + B + 6 - H, gy - H*0.5));
-    camY += (target-camY)*Math.min(1, dt*6);
+    if(Math.random()<0.08) spawnParts(parts, W/2+(Math.random()-.5)*50, FLOOR-20, 1, RAMP.gem, {speed:20, up:true, g:-30, life:1.2});
+    if(drag) userT = 2.5;
+    if(userT>0){ userT -= dt; camY += (manual-camY)*Math.min(1, dt*14); }
+    else camY += (clampCam(gy - H*0.5)-camY)*Math.min(1, dt*6);
     parts = stepParts(parts, dt);
   }
   function draw(){
@@ -702,7 +713,7 @@ function makeShaft(cv, t, rows){
       const y = TOP + r*B;
       if(y-camY > H || y+B-camY < 0) continue;
       for(let c=0;c<5;c++){
-        const inChamber = r>=rows && r<rows+2 && c>0 && c<4;
+        const inChamber = r>=rows && r<rows+2;
         if((c===2 && broken.has(r)) || inChamber){ ctx.drawImage(hole, c*B, y, B, B); ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(c*B, y, B, B); continue; }
         ctx.drawImage(tex[r][c], c*B, y, B, B);
       }
@@ -713,22 +724,24 @@ function makeShaft(cv, t, rows){
         if(cracks[r]>1) [[5,8],[6,9],[6,10],[7,11],[10,8],[11,9],[12,10],[4,7]].forEach(([i,j])=>ctx.fillRect(cx+i*P, y+j*P, P, P));
       }
     }
-    // кристалл на дне
-    const gx = W/2+48, gyc = FLOOR-6, pulse = 0.5+0.5*Math.sin(clock*2.5);
-    glow(ctx, gx, gyc-30, 60 + glowK*60 + pulse*8);
-    if(glowK>0){ ctx.fillStyle = `rgba(95,211,198,${glowK*0.18})`; ctx.fillRect(B, CH, 3*B, 2*B); }
-    const big = gemSpr('cyan'), side = gemSpr('amethyst');
-    ctx.drawImage(side, snap(gx-46), snap(gyc-36), 30, 26);
-    ctx.drawImage(side, snap(gx+18), snap(gyc-30), 24, 21);
-    ctx.drawImage(big, snap(gx-23), snap(gyc-62), 45, 39);
-    ctx.drawImage(big, snap(gx-15), snap(gyc-21), 30, 26);
-    twinkle(ctx, gx-6, gyc-54, clock*1.7); twinkle(ctx, gx+24, gyc-24, clock*1.3+1);
-    if(glowK>0) twinkle(ctx, gx-36, gyc-30, clock*2.3+0.5);
+    // кристалл на дне: один большой, по центру, с лучами и бликом
+    const cx = W/2, cyc = FLOOR-34, pulse = 0.5+0.5*Math.sin(clock*2.5);
+    ctx.save(); ctx.translate(cx, cyc); ctx.rotate(clock*0.25); ctx.fillStyle = `rgba(160,255,240,${0.05+glowK*0.12+pulse*0.03})`;
+    for(let k=0;k<8;k++){ ctx.rotate(Math.PI/4); ctx.beginPath(); ctx.moveTo(-5,0); ctx.lineTo(5,0); ctx.lineTo(0,-120); ctx.fill(); }
+    ctx.restore();
+    glow(ctx, cx, cyc, 55 + glowK*55 + pulse*10);
+    if(glowK>0){ ctx.fillStyle = `rgba(95,211,198,${glowK*0.16})`; ctx.fillRect(0, CH, W, 2*B); }
+    R_(ctx, cx-30, FLOOR-4, 60, 4, '#2e2823');
+    ctx.drawImage(gemSpr('cyan'), cx-37.5, FLOOR-68, 75, 65);
+    const sweep = (clock*0.8)%2.6;
+    if(sweep<1){ ctx.save(); ctx.beginPath(); ctx.rect(cx-45+sweep*90, FLOOR-70, 10, 70); ctx.clip(); ctx.globalAlpha = 0.55; ctx.drawImage(whiteGem, cx-37.5, FLOOR-68, 75, 65); ctx.restore(); }
+    for(let k=0;k<4;k++){ const a = clock*0.9 + k*Math.PI/2; twinkle(ctx, cx+Math.cos(a)*50, cyc+Math.sin(a)*28, clock*1.6+k*0.7); }
+    twinkle(ctx, cx-12, FLOOR-58, clock*1.3);
     // гном с киркой
-    blit(ctx, gnomeS, W/2-24, gy-66);
+    blit(ctx, gnomeS, gxN-24, gy-66);
     let ang = -0.5 + Math.sin(clock*2)*0.05;
     if(anim && anim.type==='swing'){ const e = anim.t/0.22; ang = e<0.5 ? -0.5 - e*3.2 : -2.1 + (e-0.5)*2*2.8; }
-    ctx.save(); ctx.translate(W/2+16, gy-30); ctx.rotate(ang); ctx.drawImage(pickS, -6, -33, 36, 36); ctx.restore();
+    ctx.save(); ctx.translate(gxN+16, gy-30); ctx.rotate(ang); ctx.drawImage(pickS, -6, -33, 36, 36); ctx.restore();
     drawParts(ctx, parts);
     ctx.restore();
   }
@@ -759,7 +772,7 @@ function mine(arg){
     qs = base.concat(extra);
   }
   qs = qs.map(q=>({...q, ans:q.n*q.k, flip:Math.random()<0.4}));
-  let i = 0, typed = '', tries = 0, firstOk = 0, combo = 0, busy = false; const start = S.gems;
+  let i = 0, typed = '', tries = 0, firstOk = 0, combo = 0, busy = false, arrOld = false; const start = S.gems;
   app.innerHTML = `${bar(big ? 'Большая шахта' : 'Забой гнома '+t.name)}
     <div class="mine-wrap">
       <div class="shaft"><canvas id="shaft" aria-label="Шахта: гном копает вниз к кристаллу"></canvas></div>
@@ -767,7 +780,7 @@ function mine(arg){
         <div class="qbox">
           <div class="muted" id="qnum"></div>
           <div class="q" id="q"></div>
-          <div class="say" id="say">Решай пример, и гном ударит киркой.</div>
+          <div class="say" id="say">Решай пример, и гном ударит киркой. Шахту можно листать пальцем.</div>
           <div class="combo" id="combo"></div>
         </div>
         <div class="keys" id="keys">
@@ -791,13 +804,12 @@ function mine(arg){
     const q = qs[i];
     $('#qnum').textContent = q.review ? 'Повторим трудный пример' : `Пример ${i+1} из ${qs.length}`;
     $('#q').innerHTML = `${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = <span class="ans" id="ans">${typed||'?'}</span>`;
-    $('#arr').innerHTML = '';
   }
   function press(k){
     if(busy || i>=qs.length) return;
     if(k==='del'){ typed = typed.slice(0,-1); }
     else if(k==='ok'){ if(typed) check(); return; }
-    else if(typed.length<2){ typed += k; tick(); }
+    else if(typed.length<2){ typed += k; tick(); if(arrOld){ $('#arr').innerHTML = ''; arrOld = false; } }
     $('#ans').textContent = typed || '?'; $('#ans').classList.remove('wrong');
   }
   function check(){
@@ -817,7 +829,7 @@ function mine(arg){
         $('#combo').textContent = '';
       }
       save(); showArr(q, true);
-      setTimeout(()=>{ i++; typed=''; tries=0; busy=false; if(i<qs.length) draw(); else finish(); }, 1100);
+      setTimeout(()=>{ i++; typed=''; tries=0; busy=false; arrOld = true; if(i<qs.length) draw(); else finish(); }, 1100);
     } else {
       tries++; combo = 0; $('#combo').textContent=''; thud(); shaft.clang();
       if(tries===1){ f.bad++; save(); }
@@ -1221,12 +1233,27 @@ function echo(n){
 }
 
 /* ---------- 6. Броски: пауки-воришки ---------- */
-const SPIDER = [
-  [".L...L....L...L.","..L...L..L...L..","L..L..oooo..L..L",".L..LobhhboL..L.","..LLobBhhBboLL..","LLLobBRBBRBboLLL","...obBrBBrBbo...","LLLobBBBBBBboLLL","..LLobBBBBboLL..",".L..LobbbboL..L.","L..L..oooo..L..L","..L..........L.."],
-  ["L..L........L..L",".L..L......L..L.","..L...oooo...L..",".L..LobhhboL..L.","..LLobBhhBboLL..","LLLobBRBBRBboLLL","...obBrBBrBbo...","LLLobBBBBBBboLLL","..LLobBBBBboLL..","..L.LobbbboL.L..",".L..L.oooo.L..L.","L..L........L..L"],
-];
-const SPIDER_PAL = {o:'#120c14', B:'#6b4f80', b:'#4a3560', h:'#a688c0', R:'#ff4a4a', r:'#ffd0d0', L:'#9a86ad'};
-const spiderSpr = f => sprCanvas(SPIDER[f], SPIDER_PAL, 'spider'+f);
+// паук рисуется по точкам: круглое брюшко с красными часами, голова с глазами и хелицерами, восемь коленчатых лап
+function makeSpider(f){
+  const c = canvasOf(30,20), x = c.getContext('2d'), d1 = (a,b,col)=>{ x.fillStyle = col; x.fillRect(a,b,1,1); };
+  const line = (x0,y0,x1,y1,col,col2)=>{ const n = Math.max(Math.abs(x1-x0),Math.abs(y1-y0)); for(let i=0;i<=n;i++) d1(Math.round(x0+(x1-x0)*i/n), Math.round(y0+(y1-y0)*i/n), i%2 ? col : col2); };
+  // лапы: от головы вверх к колену, потом вниз к кончику — как у настоящего паука
+  const legs = [[[12,12],[6,4],[1,9]], [[12,13],[4,9],[0,15]], [[12,14],[4,14],[1,19]], [[13,15],[8,17],[5,19]]];
+  legs.forEach(([b,k,ft],i)=>{ for(const side of [0,1]){
+    const w = ((i+f+side)%2 ? 1 : -1), m = p => side ? [29-p[0], p[1]] : p;
+    const B = m(b), K = m([k[0], k[1]+w]), F = m([ft[0], ft[1]+w]);
+    line(B[0],B[1],K[0],K[1],'#8a76a0','#6a5680'); line(K[0],K[1],F[0],F[1],'#7a6690','#5a4870');
+    d1(K[0],K[1],'#c4b0d4'); d1(F[0],F[1],'#2a1f30'); } });
+  for(let j=0;j<12;j++) for(let i=0;i<30;i++){ const d = ((i-14.5)/5.8)**2+((j-5.8)/5.6)**2; if(d<=1) d1(i,j, d>0.8 ? '#1a1020' : (i<14 && j<5 && d<0.42) ? '#8a6aa8' : (i*3+j)%5===0 ? '#4a3262' : '#3e2a52'); }
+  [[14,3],[15,3],[14,4],[15,4],[14,5],[15,6],[14,7],[15,7],[14,8],[15,8]].forEach(([a,b])=>d1(a,b,'#e3644d')); d1(14,3,'#ff8a73');
+  for(let j=10;j<18;j++) for(let i=10;i<20;i++){ const d = ((i-14.5)/3.8)**2+((j-13.6)/3.1)**2; if(d<=1) d1(i,j, d>0.72 ? '#1a1020' : '#4e3866'); }
+  d1(13,13,'#ff4a4a'); d1(16,13,'#ff4a4a'); d1(13,12,'#ffd0d0'); d1(16,12,'#ffd0d0'); d1(14,12,'#c83030'); d1(15,12,'#c83030'); d1(12,14,'#c83030'); d1(17,14,'#c83030');
+  d1(14,17,'#e8d8c0'); d1(15,17,'#e8d8c0'); d1(13,16,'#a89880'); d1(16,16,'#a89880');
+  d1(14,0,'#cfc4dc'); d1(15,0,'#cfc4dc');
+  return c;
+}
+const _spiders = [];
+const spiderSpr = f => _spiders[f] ||= makeSpider(f);
 function caveBackdrop(){
   const w = 120, h = 187, c = makeRock(w, h, 77), x = c.getContext('2d'), r = rng(99), tips = [], crystals = [];
   for(let k=0;k<16;k++){
@@ -1255,7 +1282,7 @@ function caveBackdrop(){
 }
 function throwGame(arg){
   const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
-  const WAVES = big ? 20 : 15, W = 360, H = 560, GX = 180, GY = 519, G = 700, SPEED = 950, BITE = GY-130;
+  const WAVES = big ? 20 : 15, W = 360, H = 560, GX = 180, GY = 519, G = 700, SPEED = 950, BITE = GY-163;
   const pool = (big ? HARD : [t]).flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k})));
   const maxHearts = 3 + (own('pick') ? 1 : 0);
   let score = 0, hearts = maxHearts, shield = own('robot'), combo = 0, mult = 1, right = 0, done = 0, slips = 0;
@@ -1267,7 +1294,7 @@ function throwGame(arg){
   app.innerHTML = `${bar(big ? 'Броски в Большой шахте' : 'Броски с гномом '+t.name)}
     <div class="race"><canvas id="rc" aria-label="Поле бросков"></canvas>
       <div class="race-start" id="rs">
-        ${px(SPIDER[0], SPIDER_PAL)}
+        <img class="spider-img" src="${spiderSpr(0).toDataURL()}" alt="">
         <h2>Пауки-воришки!</h2>
         <p>Пауки утащили камни с ответами и спускаются с потолка. Брось кирку в паука с <b>правильным</b> ответом: паук улетит, а камень расколется на алмаз.</p>
         <p class="muted">Проведи пальцем вверх в сторону паука или просто нажми на него. Пауки потихоньку спускаются: не успеешь, и паук укусит гнома.</p>
@@ -1304,7 +1331,7 @@ function throwGame(arg){
     spawnParts(parts, 19+hearts*24, 19, 14, RAMP.hurt, {speed:130, life:.6});
   }
   function resolve(s){
-    const q = wave.q, f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0}), x = sx(s), sy = s.y+40;
+    const q = wave.q, f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0}), x = sx(s), sy = s.y+74;
     wave.res = s; done++; axe = null;
     if(s.val===q.ans){
       right++; combo++; f.ok++;
@@ -1362,7 +1389,7 @@ function throwGame(arg){
         for(const s of wave.spiders){
           if(s.st!=='down') continue;
           const x = sx(s);
-          if(Math.abs(axe.x-x)<40 && axe.y>s.y-24 && axe.y<s.y+64){ resolve(s); break; }
+          if(Math.abs(axe.x-x)<40 && axe.y>s.y-20 && axe.y<s.y+98){ resolve(s); break; }
         }
       }
       if(axe && (axe.y>H+40 || axe.x<-40 || axe.x>W+40 || axe.y<-80)){ axe = null; if(wave && !wave.res) flash = {text:'Мимо!', color:'#bba98f', t:0.6, small:true}; }
@@ -1390,7 +1417,7 @@ function throwGame(arg){
       else { loseHeart(); miss('Паук укусил! Запомни ответ'); }
     }
   }
-  function drawSpider(x, y, frame){ blit(ctx, spiderSpr(frame), x-24, y-18); }
+  function drawSpider(x, y, frame){ blit(ctx, spiderSpr(frame), x-45, y-15); }
   function draw(){
     ctx.save();
     if(shake>0) ctx.translate(snap((Math.random()-.5)*16*shake), snap((Math.random()-.5)*16*shake));
@@ -1406,15 +1433,15 @@ function throwGame(arg){
         const x = sx(s), frame = ((clock*(s.st==='up'?16:6)+s.ph)|0)%2;
         if(s.y-14>99){ ctx.strokeStyle = 'rgba(225,215,240,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(s.ax, 99); ctx.lineTo(x, s.y-14); ctx.stroke(); }
         drawSpider(x, s.y, frame);
-        ctx.fillStyle = 'rgba(225,215,240,.6)'; ctx.fillRect(snap(x-15), snap(s.y+9), P/2, 9); ctx.fillRect(snap(x+15), snap(s.y+9), P/2, 9);
-        ctx.drawImage(s.good ? crys : s.hitBad ? bad : stones[s.kind], snap(x-36), snap(s.y+18), 72, 45);
-        drawNum(ctx, s.val, x, s.y+40, s.good ? '#0d3b3f' : '#221a14');
-        if(s.good) twinkle(ctx, x+27, s.y+21, clock*2);
+        ctx.strokeStyle = 'rgba(225,215,240,.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x-2, s.y+38); ctx.lineTo(x-24, s.y+53); ctx.moveTo(x+2, s.y+38); ctx.lineTo(x+24, s.y+53); ctx.stroke();
+        ctx.drawImage(s.good ? crys : s.hitBad ? bad : stones[s.kind], snap(x-36), snap(s.y+52), 72, 45);
+        drawNum(ctx, s.val, x, s.y+74, s.good ? '#0d3b3f' : '#221a14');
+        if(s.good) twinkle(ctx, x+27, s.y+55, clock*2);
       }
     }
     for(const f of flyers){
       ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot);
-      ctx.drawImage(spiderSpr(((clock*20)|0)%2), -24, -18, 48, 36); ctx.restore();
+      ctx.drawImage(spiderSpr(((clock*20)|0)%2), -45, -30, 90, 60); ctx.restore();
     }
     if(aim && running && !axe){
       const tg = aimTarget(aim);
@@ -1493,8 +1520,6 @@ function spark1(c, x, y, ph, col='#fff2a8'){
   if(big){ c.globalAlpha = .6; c.fillRect(x-2,y,1,1); c.fillRect(x+2,y,1,1); c.fillRect(x,y-2,1,1); c.fillRect(x,y+2,1,1); c.globalAlpha = 1; }
 }
 const EMBER = ['#fff4cc','#ffd36a','#f2b347','#e3644d','#8a2f2a'];
-const SPORE = ['#e8f6ff','#9ad4ff','#5ab0ff','#2a5a8a'];
-const VIOLET = ['#f3e6ff','#c69cff','#9b6bff','#45267f'];
 const ember = (add, x, y, sp=1) => add({x:x+(Math.random()-.5)*4*sp, y, vx:(Math.random()-.5)*8*sp, vy:-(14+Math.random()*18)*sp, life:0.8+Math.random()*0.9, ramp:EMBER, wob:3});
 const CAVE_ITEMS = [
   {key:'fire', name:'Костёр', price:1, text:'Первый свет в пещере. Трещит, искрит и греет гномов.', box:[84,98,32,18],
@@ -1529,9 +1554,12 @@ const CAVE_ITEMS = [
     lights:t=>{ const out = []; for(let x=17;x<=186;x+=18){ const y = 15 + Math.round(Math.sin((x-14)/172*Math.PI*3)**2*6); out.push({x, y, r:12, c:['255,90,90','255,211,106','123,227,123','90,176,255','255,138,216'][((x-14)/18|0)%5]}); } return out; }},
   {key:'mush', name:'Светогрибы', price:3, text:'Светятся синим и лиловым и пускают светящиеся споры.', box:[38,30,142,12],
     draw(c){ for(const [x,y] of [[40,32],[166,32]]){ R_(c,x-3,y+8,18,2,'#40342a'); R_(c,x-3,y+8,18,1,'#5e5146'); } },
-    over(c){ const m = sprCanvas(ART.mush, PAL.mush, 'mush'); c.drawImage(m, 40, 32); c.drawImage(m, 166, 32); },
-    emit(t,add){ if(Math.random()<0.12) add({x:44+Math.random()*10, y:34, vx:(Math.random()-.5)*4, vy:-3-Math.random()*4, life:2+Math.random(), ramp:SPORE, wob:6});
-                 if(Math.random()<0.12) add({x:170+Math.random()*10, y:34, vx:(Math.random()-.5)*4, vy:-3-Math.random()*4, life:2+Math.random(), ramp:VIOLET, wob:6}); },
+    over(c,t){ const m = sprCanvas(ART.mush, PAL.mush, 'mush');
+      for(const [x,y,ph] of [[40,32,0],[166,32,1.7]]){
+        c.drawImage(m, x, y);
+        c.globalAlpha = 0.2+0.22*Math.sin(t*1.5+ph); c.globalCompositeOperation = 'lighter'; c.drawImage(m, x, y); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+        [[x+4,y],[x+2,y+1],[x+6,y+2],[x+9,y+3],[x+10,y+4]].forEach(([gx,gy],k)=>{ const q = (t*0.8+k*0.47+ph)%2.4; if(q<0.22) R_(c,gx,gy,1,1, q<0.11 ? '#ffffff' : '#c6ecff'); });
+      } },
     lights:t=>[{x:46,y:36,r:24+Math.sin(t*2)*2,c:'90,170,255'},{x:172,y:36,r:24+Math.cos(t*2)*2,c:'180,130,255'}]},
   {key:'chairs', name:'Кресла', price:4, text:'Два мягких бархатных кресла у огня.', box:[60,79,73,14],
     draw(c){ const s = sprCanvas(CHAIR, CHAIR_PAL, 'chair'); c.drawImage(s, 62, 80); c.drawImage(s, 119, 80); R_(c,64,85,3,2,'#e8d2a0'); R_(c,121,85,3,2,'#6aa0d8'); }},
