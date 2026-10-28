@@ -215,6 +215,18 @@ h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:va
 .shaft canvas{width:100%; max-width:min(340px, calc((100vh - 140px) * 0.571)); aspect-ratio:240/420; display:block; margin:0 auto; border:3px solid var(--rock-2); background:#100c09; image-rendering:pixelated}
 .mine-side{display:flex; flex-direction:column; gap:10px; min-width:0}
 .mine-side .qbox{padding:12px}
+/* пещера на главной */
+.cave-wrap{position:relative}
+#cave{width:100%; aspect-ratio:200/120; display:block; border:3px solid var(--rock-2); background:#0e0a08; image-rendering:pixelated; touch-action:manipulation; cursor:pointer}
+.cave-tip{position:absolute; left:50%; bottom:12px; transform:translateX(-50%); background:rgba(14,10,8,.85); border:2px solid var(--rock-2); padding:6px 12px; font-size:15px; color:var(--lamp); text-align:center; width:max-content; max-width:90%}
+.cave-actions{justify-content:space-between; align-items:center}
+.item .prev{height:72px; width:auto; max-width:100%; image-rendering:pixelated; object-fit:contain}
+.prev.big{height:120px; image-rendering:pixelated}
+.item.owned{border-color:var(--moss)}
+.item .pbtn{display:flex; align-items:center; gap:8px; justify-content:center}
+.item .pbtn .px{width:24px}
+.item .pbtn:disabled{opacity:.55; cursor:default}
+.perk{color:var(--gem); font-size:15px}
 @media (max-width:640px){
   .shaft canvas{max-width:min(300px, calc(46vh * 0.571))}
   .crys-wrap,.mine-wrap{grid-template-columns:minmax(0,1fr)}
@@ -431,19 +443,22 @@ const TABLES = [
 ];
 const HARD = TABLES.filter(t=>t.hard);   // Большая шахта и подсветка «трудная»
 const tableOf = n => TABLES.find(t=>t.n===n);
-const ITEMS = [
-  {at:25,  key:'lantern', name:'Фонарь',              text:'В шахте стало светло.'},
-  {at:60,  key:'mush',    name:'Светогрибы',          text:'Светятся в темноте синим и лиловым.'},
-  {at:110, key:'cart',    name:'Вагонетка',           text:'Возить самоцветы стало легче.'},
-  {at:180, key:'robot',   name:'Робот Бип',           text:'Едет с тобой в гонке и один раз защищает от удара.'},
-  {at:260, key:'pick',    name:'Алмазная кирка',      text:'В гонке у тебя на одну каску больше.'},
-  {at:360, key:'crown',   name:'Корона короля гномов', text:'Корона короля Одина. Её получает тот, кто знает всю таблицу.'},
-];
 
 /* ---------- сохранение (только на этом планшете) ---------- */
 const KEY = 'shahta-gnomov-v1';
-function fresh(){ return {gems:0, t:{}, facts:{}, crystals:[], seen:[], bigBest:0, sound:true}; }
-function load(){ try{ const d = JSON.parse(localStorage.getItem(KEY)); if(d && d.t) return Object.assign(fresh(), d); }catch(e){} return fresh(); }
+function fresh(){ return {gems:0, kr:0, own:[], sel:7, t:{}, facts:{}, crystals:[], bigBest:0, sound:true}; }
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if(d && d.t){
+      const m = Object.assign(fresh(), d);
+      // переход со старых самоцветов: накопленное превращается в несколько стартовых кристаллов
+      if(d.kr===undefined) m.kr = Math.min(6, Math.floor((d.gems||0)/15));
+      return m;
+    }
+  }catch(e){}
+  return fresh();
+}
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 let S = load();
 const tp = n => (S.t[n] ||= {rhythm:0, crystal:0, mine:0});
@@ -473,26 +488,17 @@ const app = $('#app');
 const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]];} return a; };
 const fk = (a,b) => Math.min(a,b)+'x'+Math.max(a,b);
 let cleanup = [];
-function addGems(k, el){
-  if(k<=0) return;
-  S.gems += k; save();
-  const c = $('#gemc'); if(c){ c.querySelector('b').textContent = S.gems; c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump'); }
-  if(el){
-    const r = el.getBoundingClientRect(), f = document.createElement('div');
-    f.className='float'; f.textContent='+'+k; f.style.left=(r.left+r.width/2)+'px'; f.style.top=(r.top)+'px';
-    document.body.appendChild(f); setTimeout(()=>f.remove(), 1000);
-    fx.burst(el, 10+k*3); fx.gemTo(el);
-  }
-}
+// внутри игр — только искры; кристаллы выдаются один раз в конце игры (см. reward)
+function addGems(k, el){ if(el) fx.burst(el, 8+k*3); }
 function bar(title){
   return `<div class="bar">
     ${title ? `<button class="back" data-go="home">← Пещера</button>` : ''}
     <div class="grow">${title ? `<h2>${title}</h2>` : `<h1>Шахта гномов</h1>`}</div>
     <button class="snd" data-act="sound">${S.sound?'звук: вкл':'звук: выкл'}</button>
-    <div class="gems" id="gemc">${gemIco()}<b>${S.gems}</b></div>
+    <div class="gems" id="gemc" title="Кристаллы">${gemIco()}<b>${S.kr}</b></div>
   </div>`;
 }
-function bipHTML(){ return S.gems >= 180 ? `<div class="bip" id="bip">${px(ART.robot,PAL.robot)}<span id="bipsay"></span></div>` : ''; }
+function bipHTML(){ return own('robot') ? `<div class="bip" id="bip">${px(ART.robot,PAL.robot)}<span id="bipsay"></span></div>` : ''; }
 function bipSay(t){ const b=$('#bip'); if(!b) return; $('#bipsay').textContent=t; b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop'); }
 
 /* ---------- навигация ---------- */
@@ -507,39 +513,6 @@ document.addEventListener('click', e=>{
   if(g){ const a=g.dataset.arg; go(g.dataset.go, a===undefined?undefined:(isNaN(a)?a:+a)); return; }
   if(e.target.closest('[data-act="sound"]')){ S.sound=!S.sound; save(); e.target.closest('button').textContent = S.sound?'звук: вкл':'звук: выкл'; if(S.sound) chime(4); }
 });
-
-/* ---------- главная ---------- */
-function home(){
-  const next = ITEMS.find(it=>S.gems<it.at), prev = [...ITEMS].reverse().find(it=>S.gems>=it.at);
-  const from = prev?prev.at:0, pct = next ? Math.round((S.gems-from)/(next.at-from)*100) : 100;
-  app.innerHTML = `${bar()}
-  <button class="hoard" data-go="treasury" aria-label="Открыть сокровищницу">
-    <div class="ledge">${ITEMS.map(it=>`<span class="${S.gems>=it.at?'':'locked'}">${px(ART[it.key],PAL[it.key])}</span>`).join('')}</div>
-    <div class="progress"><i style="width:${pct}%"></i></div>
-    <div class="hoard-row"><span>${next ? `До находки «${next.name}» осталось <b style="color:var(--gem)">${next.at-S.gems}</b> самоцветов` : 'Все сокровища найдены!'}</span><span class="muted">Сокровищница →</span></div>
-  </button>
-  <div class="mines">
-    ${TABLES.map(t=>{ const p=tp(t.n); return `<section class="card">
-      <div class="card-head">${gnome(t)}<div>
-        <div class="num">×${t.n}${t.hard?'<span class="tag">трудная</span>':''}${p.mine===3?'<span class="master">мастер</span>':''}</div>
-        <h3>Гном ${t.name}</h3><p>${t.lore}</p></div></div>
-      <div class="stages">
-        <button class="stage" data-go="rhythm" data-arg="${t.n}"><b>Тропа</b>${starsHTML(p.rhythm)}</button>
-        <button class="stage" data-go="echo" data-arg="${t.n}"><b>Эхо</b>${starsHTML(p.echo||0)}</button>
-        <button class="stage" data-go="crystal" data-arg="${t.n}"><b>Кристалл</b>${starsHTML(p.crystal)}</button>
-        <button class="stage" data-go="mine" data-arg="${t.n}"><b>Забой</b>${starsHTML(p.mine)}</button>
-        <button class="stage hot" data-go="race" data-arg="${t.n}"><b>Гонка</b>${starsHTML(p.race||0)}</button>
-        <button class="stage hot" data-go="throw" data-arg="${t.n}"><b>Броски</b>${starsHTML(p.throw||0)}</button>
-      </div></section>`; }).join('')}
-    <section class="card big">
-      <div class="card-head">${px(ART.cart,PAL.cart)}<div>
-        <div class="num">×4 ×6 ×7 ×8</div><h3>Большая шахта</h3>
-        <p>Все четыре гнома копают вместе. Трудные примеры попадаются чаще, пока не станут лёгкими.</p></div></div>
-      <div class="row" style="justify-content:space-between; align-items:center">${starsHTML(Math.max(S.bigBest, S.bigRace||0, S.bigThrow||0))}<span class="row"><button class="pbtn alt" data-go="mine" data-arg="big">Забой</button><button class="pbtn" data-go="race" data-arg="big">Гонка</button><button class="pbtn" data-go="throw" data-arg="big">Броски</button></span></div>
-    </section>
-  </div>
-  <p class="muted" style="font-size:15px">Верхний ряд помогает понять таблицу: услышать ритм, прохлопать его и увидеть узор. Нижний ряд закрепляет её: вспомнить с подсказками, потом ответить на скорости.</p>`;
-}
 
 /* ---------- 1. Тропа: ритм счёта ---------- */
 function rhythm(n){
@@ -836,7 +809,7 @@ function mine(arg){
         shaft.dig(true, combo>=3 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan');
         addGems(3);
         say(['Точно! Камень раскололся.','Верно! Глубже!','Отличный удар!','Так держать!'][Math.random()*4|0]); bipSay('Бип!');
-        if(combo%3===0){ setTimeout(()=>{ addGems(2, $('#combo')); $('#combo').textContent = `Серия ${combo}! +2 бонус`; tone(1568,0.5,0.12); }, 300); }
+        if(combo%3===0){ setTimeout(()=>{ addGems(2, $('#combo')); $('#combo').textContent = `Серия ${combo}!`; tone(1568,0.5,0.12); }, 300); }
         else $('#combo').textContent = combo>1 ? `Серия: ${combo}` : '';
       } else {
         chime(2); shaft.dig(false);
@@ -895,14 +868,14 @@ function distractors(n,k){
   return [...out];
 }
 // табло сверху: каски, пример, счёт, полоска пути
-function drawHud(ctx, W, {hearts, maxHearts, mult, right, total, done, q, clock}){
+function drawHud(ctx, W, {hearts, maxHearts, mult, right, total, done, q, clock, label}){
   ctx.fillStyle = '#120d0a'; ctx.fillRect(0,0,W,75);
   ctx.fillStyle = '#2b231c'; ctx.fillRect(0,69,W,6);
   const full = sprCanvas(HEART, {o:'#3a0e0c', R:'#e3644d', W:'#ffc2b5'}, 'heart'), empty = sprCanvas(HEART, {o:'#1a120c', R:'#3a2f28', W:'#4a3f36'}, 'heart0');
   for(let i=0;i<maxHearts;i++) ctx.drawImage(i<hearts ? full : empty, 9+i*24, 9, 21, 21);
   ctx.drawImage(gemSpr('cyan'), W-84, 40, 22.5, 19.5);
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '700 20px "Balsamiq Sans", sans-serif';
-  ctx.fillStyle = '#5fd3c6'; ctx.fillText(`${right}/${total}`, W-10, 51);
+  ctx.fillStyle = '#5fd3c6'; ctx.fillText(label ?? `${right}/${total}`, W-10, 51);
   if(mult>1){ ctx.fillStyle = Math.sin(clock*12)>0 ? '#fff2a8' : '#f7c548'; ctx.fillText('×'+mult, W-10, 20); }
   if(q){ ctx.textAlign = 'center'; ctx.fillStyle = '#f4e8d3'; ctx.font = '700 34px "Balsamiq Sans", sans-serif'; ctx.fillText(`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ?`, W/2, 38); }
   const seg = W/total;
@@ -924,9 +897,9 @@ function race(arg){
   const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
   const WAVES = big ? 25 : 20, W = 360, H = 560, LX = [69,180,291], CY = 478, VMIN = 55, VMAX = 230;
   const pool = (big ? HARD : [t]).flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k})));
-  const start = S.gems, maxHearts = 3 + (S.gems>=260 ? 1 : 0);
+  const maxHearts = 3 + (own('pick') ? 1 : 0);
   let lane = 1, cx = LX[1], v = big ? 75 : 65, scroll = 0, wave = null, last = null, done = 0, right = 0, crashes = 0, clock = 0;
-  let hearts = maxHearts, shield = S.gems>=180, combo = 0, mult = 1, pause = 0, shake = 0, red = 0, flash = null;
+  let score = 0, hearts = maxHearts, shield = own('robot'), combo = 0, mult = 1, pause = 0, shake = 0, red = 0, flash = null;
   let parts = [], gemsFly = [], motes = [], running = false, over = false, raf = 0, lastT = 0, boost = false, swipe = null;
   const stones = [0,1,2,3].map(i=>makeStone(28,18,40+i,STONE_PAL,true,true)), crys = makeStone(28,18,9,CRYS_PAL,false,true), bad = makeStone(28,18,12,BAD_PAL,false,true);
   const floorT = makeRock(120, 40, 21), wallT = makeStone(10, 40, 33, {base:'#2b231c', lo:'#241d17', hi:'#352b22', hi2:'#40342a', dk:'#15100c', o:'#120d0a'}, true);
@@ -961,7 +934,7 @@ function race(arg){
     if(val===q.ans){
       wave.hit = 'ok'; right++; combo++; f.ok++;
       const was = mult; mult = combo>=6 ? 3 : combo>=3 ? 2 : 1;
-      const g = 2*mult; addGems(g);
+      const g = 2*mult; score += g;
       spawnParts(parts, x, y, 16, RAMP.stone, {speed:230, size:2*P, g:900, life:.8});
       spawnParts(parts, x, y, 22, RAMP.gem, {speed:260, life:.7});
       spawnParts(parts, x, y, 10, RAMP.fire, {speed:180, up:true, life:.5});
@@ -1059,7 +1032,7 @@ function race(arg){
     }
     ctx.restore();
     if(red>0){ ctx.fillStyle = `rgba(227,60,40,${red*0.6})`; ctx.fillRect(0,0,W,H); }
-    drawHud(ctx, W, {hearts, maxHearts, mult, right, total:WAVES, done, q: wave && wave.q, clock});
+    drawHud(ctx, W, {hearts, maxHearts, mult, right, total:WAVES, done, q: wave && wave.q, clock, label:String(score)});
     drawFlash(ctx, W, flash, 262, CY-90);
   }
   function frame(ts){
@@ -1071,12 +1044,12 @@ function race(arg){
   }
   function end(finished){
     running = false; over = true;
-    if(finished){ addGems(10); fanfare(); }
+    if(finished) fanfare();
     const stars = finished && crashes===0 ? 3 : finished ? 2 : 1;
     if(big) S.bigRace = Math.max(S.bigRace||0, stars); else tp(arg).race = Math.max(tp(arg).race||0, stars);
     save(); draw();
-    reward({title: finished ? 'Станция! Вагонетка доехала' : 'Каски кончились, но самоцветы твои', stars, gained:S.gems-start,
-      line:`Поймано верных ответов: ${right} из ${done}`, again:['race',arg]});
+    reward({title: finished ? 'Станция! Вагонетка доехала' : 'Каски кончились', stars, crystal: finished ? 1 : 0,
+      line:`Очки: ${score}. Поймано верных ответов: ${right} из ${done}`, again:['race',arg]});
   }
   function setLane(l){ if(!running) return; lane = Math.max(0, Math.min(2, l)); tick(); }
   function goFast(){ if(running && wave && !wave.hit && !boost){ boost = true; tone(392,0.25,0.1,'triangle'); tone(587,0.25,0.08,'triangle',0.08); } }
@@ -1284,8 +1257,8 @@ function throwGame(arg){
   const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
   const WAVES = big ? 20 : 15, W = 360, H = 560, GX = 180, GY = 519, G = 700, SPEED = 950, BITE = GY-130;
   const pool = (big ? HARD : [t]).flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k})));
-  const start = S.gems, maxHearts = 3 + (S.gems>=260 ? 1 : 0);
-  let hearts = maxHearts, shield = S.gems>=180, combo = 0, mult = 1, right = 0, done = 0, slips = 0;
+  const maxHearts = 3 + (own('pick') ? 1 : 0);
+  let score = 0, hearts = maxHearts, shield = own('robot'), combo = 0, mult = 1, right = 0, done = 0, slips = 0;
   let wave = null, last = null, axe = null, aim = null, parts = [], flyers = [], gemsFly = [], drips = [], flash = null, pause = 0, shake = 0, red = 0, hurt = 0;
   let running = false, over = false, raf = 0, lastT = 0, clock = 0, dripT = 1;
   const bg = caveBackdrop(), gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+t.n), pickS = sprCanvas(ART.pick, PAL.pick, 'pick'), botS = sprCanvas(ART.robot, PAL.robot, 'robot');
@@ -1336,7 +1309,7 @@ function throwGame(arg){
     if(s.val===q.ans){
       right++; combo++; f.ok++;
       const was = mult; mult = combo>=6 ? 3 : combo>=3 ? 2 : 1;
-      const g = 2*mult; addGems(g);
+      const g = 2*mult; score += g;
       // паук кувырком улетает, камень раскалывается, из него вылетает алмаз
       flyers.push({x, y:s.y, vx:(x<GX?-1:1)*(140+Math.random()*160), vy:-420-Math.random()*140, rot:0, vr:(Math.random()<.5?-1:1)*(10+Math.random()*8)});
       s.st = 'gone';
@@ -1463,7 +1436,7 @@ function throwGame(arg){
     }
     ctx.restore();
     if(red>0){ ctx.fillStyle = `rgba(227,60,40,${red*0.6})`; ctx.fillRect(0,0,W,H); }
-    drawHud(ctx, W, {hearts, maxHearts, mult, right, total:WAVES, done, q: wave && wave.q, clock});
+    drawHud(ctx, W, {hearts, maxHearts, mult, right, total:WAVES, done, q: wave && wave.q, clock, label:String(score)});
     drawFlash(ctx, W, flash, 290, GY-110);
   }
   function frame(ts){
@@ -1475,12 +1448,12 @@ function throwGame(arg){
   }
   function end(finished){
     running = false; over = true;
-    if(finished){ addGems(10); fanfare(); }
+    if(finished) fanfare();
     const stars = finished && slips===0 ? 3 : finished ? 2 : 1;
     if(big) S.bigThrow = Math.max(S.bigThrow||0, stars); else tp(arg).throw = Math.max(tp(arg).throw||0, stars);
     save(); draw();
-    reward({title: finished ? 'Все пауки прогнаны!' : 'Каски кончились, но самоцветы твои', stars, gained:S.gems-start,
-      line:`Метких бросков: ${right} из ${done}`, again:['throw',arg]});
+    reward({title: finished ? 'Все пауки прогнаны!' : 'Каски кончились', stars, crystal: finished ? 1 : 0,
+      line:`Очки: ${score}. Метких бросков: ${right} из ${done}`, again:['throw',arg]});
   }
   const pt = e=>{ const r = cv.getBoundingClientRect(); return [(e.clientX-r.left)/r.width*W, (e.clientY-r.top)/r.height*H]; };
   cv.addEventListener('pointerdown', e=>{ const [x,y] = pt(e); aim = {sx:x, sy:y, cx:x, cy:y}; cv.setPointerCapture?.(e.pointerId); });
@@ -1493,7 +1466,199 @@ function throwGame(arg){
   raf = requestAnimationFrame(frame);
 }
 
-/* ---------- сокровищница ---------- */
+/* ---------- пещера гномов: главный экран, который можно обустраивать ---------- */
+const CW = 200, CHh = 120;                        // пещера рисуется в 200×120 «пикселей», потом увеличивается
+const SPOTS = {2:[30,92], 3:[52,92], 6:[150,92], 7:[172,92], 4:[16,116], 5:[40,116], 8:[160,116], 9:[184,116]};
+const R_ = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x|0, y|0, w, h); };
+const own = key => S.own.includes(key);
+function flame(c, cx, by, w, h, t, seed=0){
+  for(let i=-w; i<=w; i++){
+    const hh = Math.max(1, Math.round(h - Math.abs(i)*h/(w+1) + Math.sin(t*11 + i*1.7 + seed)*1.6));
+    for(let j=0;j<hh;j++){ const k = j/hh; R_(c, cx+i, by-j, 1, 1, k<.3 ? '#e3644d' : k<.6 ? '#f2b347' : k<.85 ? '#ffd36a' : '#fff4cc'); }
+  }
+}
+const CHAIR = ["..oooooooo..",".oRRRRRRRRo.",".oRrRRRRrRo.",".oRRRRRRRRo.","ooRRRRRRRRoo","oAoRRRRRRoAo","oAAooooooAAo","oAAyyyyyyAAo","oAAyyyyyyAAo","oooooooooooo",".oL......Lo.",".oo......oo."];
+const CHAIR_PAL = {o:'#2a1018', R:'#8a2f4a', r:'#5e1e32', A:'#a03a58', y:'#b84d6e', L:'#5a3a20'};
+const TABLE = ["................","................","..mm.......mm...","oooooooooooooooo","oTTTTTTTTTTTTTTo",".oLo........oLo.",".oLo........oLo.",".oLo........oLo."];
+const TABLE_PAL = {o:'#2a1a10', T:'#8a5a34', L:'#6a4426', m:'#c97a3a'};
+const CAT = ["o.......o...","oo.....oo...","oOoooooOo...","oOEOOOEOo...","oOOONOOOo..o",".oOOOOOo..oO",".oOWWWOOo.oO",".oOWWWOOOooO","..oOOOOOOOo.","..oo.oo.oo.."];
+const CAT_PAL = {o:'#2a1408', O:'#d9822b', E:'#9fe870', N:'#e8907a', W:'#f4e2c8'};
+const CROWN = ["Y..Y..Y","YY.Y.YY","YYYYYYY","YRYCYRY"];
+const CAVE_ITEMS = [
+  {key:'fire', name:'Костёр', price:1, text:'Первый свет в пещере. Гномы греют у него руки.', box:[90,98,20,14],
+    draw(c,t){ R_(c,91,109,18,2,'#3a2f28'); [[90,108],[108,108],[94,111],[104,111]].forEach(([x,y])=>R_(c,x,y,3,2,'#6e6052'));
+      R_(c,93,107,14,2,'#6e3d22'); R_(c,95,106,10,1,'#8b5a34'); flame(c,100,105,5,8,t); },
+    lights:t=>[{x:100,y:102,r:58+Math.sin(t*9)*3,c:'255,170,80'}]},
+  {key:'torches', name:'Факелы', price:2, text:'Два факела по бокам от камина.', box:[69,38,61,12],
+    draw(c,t){ for(const x of [72,126]){ c.drawImage(torchSpr(((t*9+x)|0)%3), x-3, 38); } },
+    lights:t=>[{x:72,y:41,r:32+Math.sin(t*13)*2,c:'255,180,90'},{x:126,y:41,r:32+Math.cos(t*12)*2,c:'255,180,90'}]},
+  {key:'rug', name:'Ковёр', price:2, text:'Тёплый ковёр с золотой каймой.', box:[66,89,69,15],
+    draw(c){ for(let y=-7;y<=7;y++) for(let x=-34;x<=34;x++){ const d = (x*x)/(34*34)+(y*y)/49; if(d>1) continue;
+      c.fillStyle = d>0.78 ? '#c99a3a' : ((x+y*2)&7)<2 && d<0.55 ? '#d9a84a' : d>0.62 ? '#6e1f1c' : '#8a2f2a'; c.fillRect(100+x, 96+y, 1, 1); } }},
+  {key:'cart', name:'Вагонетка', price:2, text:'Полная самоцветов. Её прикатили из шахты.', box:[0,66,22,14],
+    draw(c){ c.drawImage(sprCanvas(CART, {o:'#1a120c', K:'#8b7b6b', k:'#5a4e44', h:'#b5a593', B:'#9c5b34', b:'#6e3d22', n:'#d8c8b0', C:'#5fd3c6', R:'#e3644d', Y:'#f7c548', W:'#ffffff', D:'#3a3330', d:'#8b7b6b'}, 'cart-big'), 0, 66); }},
+  {key:'garland', name:'Огоньки', price:3, text:'Гирлянда под сводом пещеры. Мигает разными цветами.', box:[14,10,173,12],
+    draw(c,t){ const cols = ['#ff5a5a','#ffd36a','#7be37b','#5ab0ff','#ff8ad8'];
+      for(let x=14;x<=186;x++){ const y = 12 + Math.round(Math.sin((x-14)/172*Math.PI*3)**2*6); R_(c,x,y,1,1,'#1a1410');
+        if((x-14)%8===0){ const k = ((x-14)/8)|0, on = ((t*3+k)|0)%2===0; R_(c,x,y+1,1,2, on ? cols[k%5] : '#3a2f28'); } } },
+    lights:t=>{ const out = []; for(let x=14;x<=186;x+=24){ const y = 14 + Math.round(Math.sin((x-14)/172*Math.PI*3)**2*6); out.push({x, y, r:14, c:['255,90,90','255,211,106','123,227,123','90,176,255','255,138,216'][((x-14)/24|0)%5]}); } return out; }},
+  {key:'mush', name:'Светогрибы', price:3, text:'Светятся синим и лиловым на выступах стен.', box:[40,32,138,9],
+    draw(c){ const m = sprCanvas(ART.mush, PAL.mush, 'mush'); for(const [x,y] of [[40,32],[166,32]]){ R_(c,x-2,y+8,16,1,'#40342a'); c.drawImage(m, x, y); } },
+    lights:t=>[{x:46,y:36,r:22+Math.sin(t*2)*2,c:'90,170,255'},{x:172,y:36,r:22+Math.cos(t*2)*2,c:'180,130,255'}]},
+  {key:'chairs', name:'Кресла', price:4, text:'Два мягких кресла у огня.', box:[62,80,77,12],
+    draw(c){ const s = sprCanvas(CHAIR, CHAIR_PAL, 'chair'); c.drawImage(s, 62, 80); c.drawImage(s, 127, 80); }},
+  {key:'table', name:'Стол со свечой', price:4, text:'Кружки с горячим чаем и свеча.', box:[92,72,16,16],
+    draw(c,t){ c.drawImage(sprCanvas(TABLE, TABLE_PAL, 'table'), 92, 80); R_(c,98,77,2,3,'#f4e8d3'); R_(c,98,76 - (((t*7)|0)%2),2,1,'#ffd36a'); R_(c,98,75 - (((t*7)|0)%2),1,1,'#fff4cc'); },
+    lights:t=>[{x:99,y:76,r:16+Math.sin(t*15),c:'255,200,120'}]},
+  {key:'shelf', name:'Книжная полка', price:4, text:'Гномьи книги о кристаллах и звёздах.', box:[24,46,19,32],
+    draw(c){ R_(c,24,46,19,32,'#3a2414'); R_(c,25,47,17,30,'#5a3a20'); const r = rng(5), cols = ['#8a2f2a','#3d5a80','#4f6d3a','#c99a3a','#6b3b5a','#2f8f96'];
+      for(const sy of [54,62,70,77]){ R_(c,25,sy,17,1,'#2a1a10'); let x = 26; while(x<40){ const w = 1+(r()*2|0), h = 4+(r()*3|0); R_(c,x,sy-h,w,h,cols[(r()*cols.length)|0]); x += w+(r()<.2?1:0); } } }},
+  {key:'crystals', name:'Кристаллы в стенах', price:5, text:'Жилы светящихся кристаллов прорастают в стенах.', box:[4,14,193,30],
+    draw(c){ for(const [x,y,k] of [[8,34,'cyan'],[192,38,'amethyst'],[60,24,'emerald'],[118,20,'amethyst'],[150,22,'cyan']]){ const p = GEMS[k];
+      for(const [dx,h] of [[-2,4],[0,7],[2,5]]){ R_(c,x+dx,y-h,2,h,p.D); R_(c,x+dx,y-h,1,h,p.l); R_(c,x+dx,y-h-1,1,1,p.L); } } },
+    lights:t=>[[8,30,'95,211,198'],[192,34,'155,107,255'],[60,20,'63,185,80'],[118,16,'155,107,255'],[150,18,'95,211,198']].map(([x,y,cc],i)=>({x,y,r:15+Math.sin(t*2+i)*2,c:cc}))},
+  {key:'fireplace', name:'Камин', price:6, text:'Большой каменный камин со свечами на полке.', box:[84,42,32,38],
+    draw(c,t){ R_(c,86,46,28,34,'#5e5146'); for(let y=46;y<80;y+=4) for(let x=86+((y/4)%2?0:3);x<114;x+=6) R_(c,x,y,5,3,'#7a6a5a');
+      R_(c,84,54,32,3,'#6e3d22'); R_(c,84,54,32,1,'#8b5a34'); R_(c,92,60,16,20,'#120c0a'); R_(c,92,60,16,1,'#2a2119');
+      flame(c,100,78,5,12,t,2); R_(c,94,78,12,2,'#6e3d22');
+      for(const x of [87,112]){ R_(c,x,50,2,4,'#f4e8d3'); R_(c,x,49-((t*6+x)|0)%2,2,1,'#ffd36a'); } },
+    lights:t=>[{x:100,y:70,r:50+Math.sin(t*8)*3,c:'255,150,70'},{x:88,y:49,r:10,c:'255,210,130'},{x:113,y:49,r:10,c:'255,210,130'}]},
+  {key:'cat', name:'Пещерный кот', price:6, text:'Рыжий кот. Спит у костра и иногда машет хвостом.', box:[112,103,12,10],
+    draw(c,t){ const s = sprCanvas(CAT, CAT_PAL, 'cat'); c.drawImage(s, 112, 103); if(Math.sin(t*2)>0.6) R_(c,123,104,1,2,'#d9822b'); }},
+  {key:'robot', name:'Робот Бип', price:8, text:'Живёт в пещере и едет с тобой в Гонку и Броски.', perk:'Один раз за игру защищает от ошибки', box:[76,98,12,14],
+    draw(c,t){ c.drawImage(sprCanvas(ART.robot, PAL.robot, 'robot1'), 76, 98 - (Math.sin(t*3)>0.9?1:0)); },
+    lights:t=>[{x:82,y:103,r:9,c:'95,240,255'}]},
+  {key:'tree', name:'Ёлка', price:8, text:'Ёлка с огоньками, звездой и подарками.', box:[176,36,24,44],
+    draw(c,t){ const cx = 187;
+      for(let y=42;y<=74;y++){ const tier = y<54 ? (y-42)*0.55 : y<64 ? (y-50)*0.6 : (y-58)*0.62; const hw = Math.round(Math.min(10, tier));
+        for(let x=-hw;x<=hw;x++) R_(c,cx+x,y,1,1, x<-hw+2 ? '#4a8a4a' : x>hw-2 ? '#1f4a2a' : '#2f6a3a'); }
+      R_(c,cx-1,75,3,4,'#5a3a20');
+      const cols = ['#ff5a5a','#ffd36a','#5ab0ff','#ff8ad8'], r = rng(3);
+      for(let k=0;k<14;k++){ const y = 46+(r()*27|0), hw = Math.min(9,(y-42)*0.5), x = cx + Math.round((r()*2-1)*hw*0.8); R_(c,x,y,1,1, ((t*2+k)|0)%3 ? cols[k%4] : '#2f6a3a'); }
+      R_(c,cx,38,1,5,'#ffd36a'); R_(c,cx-2,40,5,1,'#ffd36a'); R_(c,cx,40,1,1,'#ffffff');
+      R_(c,178,74,6,6,'#e3644d'); R_(c,180,74,2,6,'#f7c548'); R_(c,192,75,6,5,'#4f86d9'); R_(c,194,75,2,5,'#f4e8d3'); },
+    lights:t=>[{x:187,y:40,r:14+Math.sin(t*4)*2,c:'255,220,120'},{x:187,y:62,r:26,c:'255,140,200'}]},
+  {key:'pick', name:'Алмазная кирка', price:10, text:'Висит над камином. В Гонке и Бросках даёт лишнюю каску.', perk:'+1 каска в Гонке и Бросках', box:[94,28,12,12],
+    draw(c){ c.drawImage(sprCanvas(ART.pick, PAL.pick, 'pick'), 94, 28); }},
+  {key:'throne', name:'Трон короля Одина', price:15, text:'Король гномов Один приходит в пещеру и садится на трон.', box:[140,48,22,32],
+    draw(c,t){ R_(c,142,52,18,28,'#3a2414'); R_(c,143,53,16,26,'#c99a3a'); R_(c,145,55,12,22,'#8a2f4a'); R_(c,141,66,20,3,'#c99a3a'); R_(c,143,78,3,2,'#3a2414'); R_(c,156,78,3,2,'#3a2414');
+      c.drawImage(sprCanvas(ART.gnome, gnomePal({cap:'#7a1f5a', coat:'#3d2a6a'}), 'odin'), 143, 50);
+      c.drawImage(sprCanvas(CROWN, {Y:'#f7c548', R:'#e3644d', C:'#5fd3c6'}, 'crown-s'), 147, 46); },
+    lights:t=>[{x:151,y:48,r:14+Math.sin(t*3)*2,c:'255,220,120'}]},
+];
+const itemOf = key => CAVE_ITEMS.find(i=>i.key===key);
+const DRAW_ORDER = ['garland','crystals','mush','shelf','torches','fireplace','pick','throne','tree','cart','rug','chairs','table','robot','fire','cat'];
+let _caveBase = null;
+function caveBase(){
+  if(_caveBase) return _caveBase;
+  const c = makeRock(CW, CHh, 31), x = c.getContext('2d'), r = rng(17);
+  for(let y=0;y<CHh;y++) for(let i=0;i<CW;i++){ const edge = Math.min(i, CW-1-i); if(edge < 10 && r() < (10-edge)/10) R_(x,i,y,1,1,'#120d0a'); }
+  for(let i=0;i<CW;i++){ const h = 4 + ((Math.sin(i*0.3)+Math.sin(i*0.11))*2|0) + (r()*2|0); R_(x,i,0,1,h,'#0e0a08'); }
+  for(let sx=4; sx<CW; sx+=7+(r()*7|0)){ const len = 3+(r()*7|0); for(let j=0;j<len;j++){ const hw = Math.max(0, Math.round((1-j/len)*1.5)); R_(x,sx-hw,6+j,hw*2+1,1,'#1a1410'); } }
+  for(let y=80;y<CHh;y++) for(let i=0;i<CW;i++){ const v = r(); R_(x,i,y,1,1, v<.4 ? '#2a2119' : v<.8 ? '#30261d' : v<.95 ? '#251d16' : '#3a2f26'); }
+  for(let i=0;i<CW;i++) R_(x,i,80+Math.round(Math.sin(i*0.2)),1,1,'#40342a');
+  return (_caveBase = c);
+}
+function drawCave(c, t, sel, flashKey){
+  c.drawImage(caveBase(), 0, 0);
+  const owned = DRAW_ORDER.filter(own);
+  const back = owned.filter(k=>!['rug','chairs','table','robot','fire','cat'].includes(k));
+  back.forEach(k=>itemOf(k).draw(c, t));
+  const gn = TABLES.map(T=>({T, x:SPOTS[T.n][0], y:SPOTS[T.n][1]}));
+  const front = owned.filter(k=>['rug','chairs','table','robot','fire','cat'].includes(k));
+  // ковёр и мебель между задним и передним рядом гномов
+  front.filter(k=>k!=='fire' && k!=='cat' && k!=='robot').forEach(k=>itemOf(k).draw(c, t));
+  for(const g of gn.filter(g=>g.y<100)) drawCaveGnome(c, g, t, sel);
+  front.filter(k=>k==='fire' || k==='cat' || k==='robot').forEach(k=>itemOf(k).draw(c, t));
+  for(const g of gn.filter(g=>g.y>=100)) drawCaveGnome(c, g, t, sel);
+  // свет: темнота с «дырками» от огней
+  const L = drawCave.L ||= canvasOf(CW, CHh), lx = L.getContext('2d');
+  const lights = owned.flatMap(k=>itemOf(k).lights ? itemOf(k).lights(t) : []);
+  gn.forEach(g=>lights.push({x:g.x, y:g.y-12, r: g.T.n===sel ? 20 : 9, c:'255,230,180', soft:true}));
+  const dark = Math.max(0.35, 0.86 - owned.filter(k=>itemOf(k).lights).length*0.05);
+  lx.globalCompositeOperation = 'source-over'; lx.clearRect(0,0,CW,CHh); lx.fillStyle = `rgba(6,4,3,${dark})`; lx.fillRect(0,0,CW,CHh);
+  lx.globalCompositeOperation = 'destination-out';
+  for(const l of lights){
+    const g = lx.createRadialGradient(l.x,l.y,0,l.x,l.y,l.r), a = l.soft ? 0.55 : 1;
+    g.addColorStop(0,`rgba(0,0,0,${a})`); g.addColorStop(0.45,`rgba(0,0,0,${a})`); g.addColorStop(0.46,`rgba(0,0,0,${a*0.65})`); g.addColorStop(0.72,`rgba(0,0,0,${a*0.65})`);
+    g.addColorStop(0.73,`rgba(0,0,0,${a*0.3})`); g.addColorStop(0.99,`rgba(0,0,0,${a*0.3})`); g.addColorStop(1,'rgba(0,0,0,0)');
+    lx.fillStyle = g; lx.fillRect(l.x-l.r, l.y-l.r, l.r*2, l.r*2);
+  }
+  c.drawImage(L, 0, 0);
+  c.globalCompositeOperation = 'lighter';
+  for(const l of lights){ if(l.soft) continue; const g = c.createRadialGradient(l.x,l.y,0,l.x,l.y,l.r*0.8); g.addColorStop(0,`rgba(${l.c},.22)`); g.addColorStop(1,`rgba(${l.c},0)`); c.fillStyle = g; c.fillRect(l.x-l.r, l.y-l.r, l.r*2, l.r*2); }
+  c.globalCompositeOperation = 'source-over';
+  // выбранный гном: прыгающая стрелка
+  const sg = gn.find(g=>g.T.n===sel);
+  if(sg){ const by = sg.y-27 - (Math.sin(t*5)>0?1:0); R_(c,sg.x-2,by,5,1,'#ffd36a'); R_(c,sg.x-1,by+1,3,1,'#ffd36a'); R_(c,sg.x,by+2,1,1,'#ffd36a'); }
+  if(flashKey){ const b = itemOf(flashKey)?.box; if(b && ((t*6)|0)%2){ c.strokeStyle = '#ffd36a'; c.lineWidth = 1; c.strokeRect(b[0]-1.5, b[1]-1.5, b[2]+3, b[3]+3); } }
+}
+function drawCaveGnome(c, g, t, sel){
+  const bob = g.T.n===sel && Math.sin(t*5)>0 ? 1 : 0;
+  c.drawImage(sprCanvas(ART.gnome, gnomePal(g.T), 'gnome'+g.T.n), g.x-8, g.y-22-bob);
+}
+function itemPreview(it){
+  const [x,y,w,h] = it.box, c = canvasOf(w, h), cx = c.getContext('2d');
+  cx.translate(-x, -y); it.draw(cx, 0.4); return c.toDataURL();
+}
+
+/* ---------- главная ---------- */
+function home(){
+  if(!SPOTS[S.sel]) S.sel = 7;
+  const affordable = CAVE_ITEMS.filter(i=>!own(i.key) && i.price<=S.kr);
+  app.innerHTML = `${bar()}
+    <div class="cave-wrap"><canvas id="cave" aria-label="Пещера гномов. Нажми на гнома, чтобы выбрать его"></canvas>
+      ${S.own.length ? '' : '<div class="cave-tip">В пещере темно. Купи в Сокровищнице костёр, и станет светлее.</div>'}
+    </div>
+    <div class="row cave-actions">
+      <span class="muted">Нажми на гнома, чтобы выбрать его</span>
+      <button class="pbtn ${affordable.length?'':'alt'}" data-go="treasury">Сокровищница${affordable.length?` · можно купить: ${affordable.length}`:''}</button>
+    </div>
+    <div id="gcard"></div>
+    <section class="card big">
+      <div class="card-head">${px(ART.cart,PAL.cart)}<div>
+        <div class="num">×4 ×6 ×7 ×8</div><h3>Большая шахта</h3>
+        <p>Все трудные гномы копают вместе. Трудные примеры попадаются чаще, пока не станут лёгкими.</p></div></div>
+      <div class="row" style="justify-content:space-between; align-items:center">${starsHTML(Math.max(S.bigBest, S.bigRace||0, S.bigThrow||0))}<span class="row"><button class="pbtn alt" data-go="mine" data-arg="big">Забой</button><button class="pbtn" data-go="race" data-arg="big">Гонка</button><button class="pbtn" data-go="throw" data-arg="big">Броски</button></span></div>
+    </section>
+    <p class="muted" style="font-size:15px">За каждую пройденную игру гном дарит один кристалл. Гонку и Броски нужно пройти до конца. Верхний ряд помогает понять таблицу, нижний закрепляет её.</p>`;
+  function card(){
+    const t = tableOf(S.sel), p = tp(t.n);
+    $('#gcard').innerHTML = `<section class="card">
+      <div class="card-head">${gnome(t)}<div>
+        <div class="num">×${t.n}${t.hard?'<span class="tag">трудная</span>':''}${p.mine===3?'<span class="master">мастер</span>':''}</div>
+        <h3>Гном ${t.name}</h3><p>${t.lore}</p></div></div>
+      <div class="stages">
+        <button class="stage" data-go="rhythm" data-arg="${t.n}"><b>Тропа</b>${starsHTML(p.rhythm)}</button>
+        <button class="stage" data-go="echo" data-arg="${t.n}"><b>Эхо</b>${starsHTML(p.echo||0)}</button>
+        <button class="stage" data-go="crystal" data-arg="${t.n}"><b>Кристалл</b>${starsHTML(p.crystal)}</button>
+        <button class="stage" data-go="mine" data-arg="${t.n}"><b>Забой</b>${starsHTML(p.mine)}</button>
+        <button class="stage hot" data-go="race" data-arg="${t.n}"><b>Гонка</b>${starsHTML(p.race||0)}</button>
+        <button class="stage hot" data-go="throw" data-arg="${t.n}"><b>Броски</b>${starsHTML(p.throw||0)}</button>
+      </div></section>`;
+  }
+  card();
+  const cv = $('#cave'), ctx = cv.getContext('2d'), low = canvasOf(CW, CHh), lc = low.getContext('2d');
+  let raf = 0, over = false, t0 = performance.now(), flashKey = home.flash, flashUntil = performance.now()+2500; home.flash = null;
+  function fit(){ const r = cv.getBoundingClientRect(), d = window.devicePixelRatio||1; cv.width = Math.round(r.width*d); cv.height = Math.round(r.height*d); ctx.imageSmoothingEnabled = false; }
+  fit(); const ro = new ResizeObserver(fit); ro.observe(cv);
+  function frame(now){
+    const t = (now-t0)/1000;
+    drawCave(lc, t, S.sel, now<flashUntil ? flashKey : null);
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(low, 0, 0, cv.width, cv.height);
+    if(!over) raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
+  cv.addEventListener('pointerdown', e=>{
+    const r = cv.getBoundingClientRect(), x = (e.clientX-r.left)/r.width*CW, y = (e.clientY-r.top)/r.height*CHh;
+    let best = null, bd = 1e9;
+    for(const T of TABLES){ const [gx,gy] = SPOTS[T.n], d = Math.hypot(x-gx, (y-(gy-11))*0.8); if(d<bd){ bd = d; best = T; } }
+    if(best && bd<16 && best.n!==S.sel){ S.sel = best.n; save(); card(); chime(TABLES.indexOf(best)); }
+  });
+  cleanup.push(()=>{ over = true; cancelAnimationFrame(raf); ro.disconnect(); });
+}
+
+/* ---------- сокровищница: лавка для пещеры ---------- */
 function crystalSVG(n){
   return `<svg viewBox="20 20 260 260"><circle cx="150" cy="150" r="112" fill="none" stroke="var(--rock-2)" stroke-width="4"/>
     <polygon points="${crystalPath(n)}" fill="var(--gem)" fill-opacity=".38" fill-rule="evenodd" stroke="var(--lamp)" stroke-width="5" stroke-linejoin="round"/></svg>`;
@@ -1501,49 +1666,70 @@ function crystalSVG(n){
 function treasury(){
   const hard = Object.entries(S.facts).map(([k,f])=>({k, s:f.bad*2-f.ok})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s).slice(0,8);
   app.innerHTML = `${bar('Сокровищница')}
-    <div class="items">${ITEMS.map(it=>{ const has = S.gems>=it.at; return `<div class="item ${has?'':'locked'}">${px(ART[it.key],PAL[it.key])}
-      <h3>${has?it.name:'???'}</h3><small>${has?it.text:`Откроется на ${it.at} самоцветах`}</small></div>`; }).join('')}</div>
-    <div class="section"><h2>Кристаллы</h2>
+    <p class="muted">У тебя <b style="color:var(--gem)">${S.kr}</b> ${plural(S.kr,'кристалл','кристалла','кристаллов')}. Каждая пройденная игра приносит ещё один. Покупки появляются в пещере.</p>
+    <div class="items">${CAVE_ITEMS.map(it=>{ const has = own(it.key), can = S.kr>=it.price; return `<div class="item ${has?'owned':''}">
+      <img class="prev" src="${itemPreview(it)}" alt="">
+      <h3>${it.name}</h3><small>${it.text}</small>${it.perk ? `<small class="perk">${it.perk}</small>` : ''}
+      ${has ? '<span class="muted">Уже в пещере</span>' : `<button class="pbtn ${can?'':'alt'}" data-buy="${it.key}" ${can?'':'disabled'}>${gemIco()} ${it.price}</button>`}
+    </div>`; }).join('')}</div>
+    <div class="section"><h2>Плетёные кристаллы</h2>
       ${S.crystals.length ? `<div class="crystals">${S.crystals.slice().sort((a,b)=>a-b).map(n=>`<figure>${crystalSVG(n)}<figcaption>×${n}</figcaption></figure>`).join('')}</div>
         <p class="muted">Нарисуй свой любимый кристалл в тетради: круг, десять точек и цветная нить.</p>`
-      : '<p class="muted">Пока пусто. Кристаллы появятся, когда ты сплетёшь их у гномов.</p>'}
+      : '<p class="muted">Пока пусто. Узоры появятся, когда ты сплетёшь их у гномов.</p>'}
     </div>
     <div class="section"><h2>Для родителей</h2>
       <p class="muted" style="font-size:16px">Примеры, в которых чаще всего ошибались (самые трудные первыми). Их удобно прохлопать или прошагать вместе вне экрана.</p>
       <div class="hard">${hard.length ? hard.map(x=>{const [a,b]=x.k.split('x'); return `<span>${a} × ${b} = ${a*b}</span>`;}).join('') : '<span class="muted">Пока ошибок нет</span>'}</div>
       <div><button class="pbtn alt" id="reset">Начать игру заново</button></div>
     </div>`;
+  app.querySelectorAll('[data-buy]').forEach(b=>b.onclick = ()=>{
+    const it = itemOf(b.dataset.buy); if(!it || own(it.key) || S.kr<it.price) return;
+    S.kr -= it.price; S.own.push(it.key); save(); fanfare();
+    fx.burst(b, 30, RAMP.gold, {speed:340});
+    const v = document.createElement('div'); v.className = 'veil';
+    v.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
+      <h2 style="color:var(--lamp)">${it.name} теперь в пещере!</h2>
+      <img class="prev big" src="${itemPreview(it)}" alt="">
+      <p>${it.text}</p>
+      <div class="row"><button class="pbtn" id="see">Посмотреть в пещере</button><button class="pbtn alt" id="stay">Остаться в Сокровищнице</button></div>
+    </div>`;
+    document.body.appendChild(v);
+    $('#see').onclick = ()=>{ home.flash = it.key; go('home'); };
+    $('#stay').onclick = ()=>{ v.remove(); treasury(); };
+  });
   let armed = false;
   $('#reset').onclick = e=>{
     if(!armed){ armed = true; e.target.textContent = 'Точно стереть весь прогресс? Нажмите ещё раз'; return; }
     const snd = S.sound; S = fresh(); S.sound = snd; save(); go('home');
   };
 }
+const plural = (n, one, few, many) => { const a = n%10, b = n%100; return a===1 && b!==11 ? one : a>=2 && a<=4 && (b<12 || b>14) ? few : many; };
 
-/* ---------- окно награды ---------- */
-function reward({title, stars, gained, line, again, next, crystalOf}){
-  const found = ITEMS.filter(it=>S.gems>=it.at && !S.seen.includes(it.key));
-  found.forEach(it=>S.seen.push(it.key)); save();
+/* ---------- окно награды: один кристалл за пройденную игру ---------- */
+function reward({title, stars, line, again, next, crystalOf, crystal=1}){
+  if(crystal) S.kr += crystal;
+  save();
+  const want = CAVE_ITEMS.find(i=>!own(i.key) && i.price<=S.kr);
   const ritual = !ritualShown && Date.now()-T0 > 15*60*1000; if(ritual) ritualShown = true;
   const v = document.createElement('div'); v.className='veil';
   v.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
     <h2 style="color:var(--lamp)">${title}</h2>
     ${starsHTML(stars)}
     ${crystalOf ? `<div class="crystals">${crystalSVG(crystalOf)}</div>` : ''}
-    <div class="gain">${gemIco()}+${gained}</div>
+    ${crystal ? `<div class="gain">${gemIco()}+1 кристалл</div>` : `<p class="muted">Кристалл достаётся тому, кто дойдёт до конца. Попробуй ещё раз!</p>`}
     ${line ? `<p>${line}</p>` : ''}
-    ${found.map(it=>`<div class="newitem">${px(ART[it.key],PAL[it.key])}<div><b>Новая находка: ${it.name}</b><br><span class="muted" style="font-size:15px">${it.text}</span></div></div>`).join('')}
+    ${want ? `<p class="perk">Кристаллов хватает на «${want.name}» в Сокровищнице.</p>` : ''}
     <div class="row">
       ${next ? `<button class="pbtn" data-go="${next[0]}" data-arg="${next[1]}">${next[2]}</button>` : ''}
       <button class="pbtn ${next?'alt':''}" data-go="${again[0]}" data-arg="${again[1]}">Ещё раз</button>
+      ${want ? '<button class="pbtn alt" data-go="treasury">В Сокровищницу</button>' : ''}
       <button class="pbtn alt" data-go="home">В пещеру</button>
     </div>
     ${ritual ? `<p class="ritual">Гномы потрудились и идут ужинать. Хорошее время закрыть шахту до завтра и нарисовать сегодняшний кристалл в тетради.</p>` : ''}
   </div>`;
   document.body.appendChild(v);
-  if(found.length) setTimeout(fanfare, 400);
-  const g = v.querySelector('.gain');
-  [0,250,500].forEach((d,i)=>setTimeout(()=>fx.burst(g, 26, i===1 ? RAMP.fire : RAMP.gem, {speed:380}), d));
+  const g = v.querySelector('.gain') || v.querySelector('h2');
+  if(crystal) [0,250,500].forEach((d,i)=>setTimeout(()=>fx.burst(g, 26, i===1 ? RAMP.fire : RAMP.gem, {speed:380}), d));
 }
 
 go('home');
