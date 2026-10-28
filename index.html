@@ -204,7 +204,19 @@ h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:va
 .blk.beat{filter:sepia(1) saturate(2.5) brightness(1.25)}
 .blk.gem{background-image:var(--crys-img); background-color:var(--gem)}
 .card,.hoard,.qbox,.intro,.item,.modal{box-shadow:inset 0 0 0 3px rgba(0,0,0,.35), 0 6px 0 rgba(0,0,0,.35)}
+/* камни-картинки с пиксельными цифрами */
+.blk{color:transparent; text-shadow:none; font-size:0}
+.blk,.blk.step,.blk.beat,.blk.gem,.blk.miss,.blk.hint{background-size:100% 100%; background-repeat:no-repeat}
+.blk.hint{animation:glowpx 1s infinite}
+@keyframes glowpx{50%{filter:brightness(1.5) sepia(.7); box-shadow:0 0 16px var(--lamp)}}
+.keys .key{aspect-ratio:3/2; min-height:0; background-size:100% 100%; image-rendering:pixelated}
+.key.num{color:transparent; font-size:0}
+.mine-wrap{grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr)}
+.shaft canvas{width:100%; max-width:min(340px, calc((100vh - 140px) * 0.571)); aspect-ratio:240/420; display:block; margin:0 auto; border:3px solid var(--rock-2); background:#100c09; image-rendering:pixelated}
+.mine-side{display:flex; flex-direction:column; gap:10px; min-width:0}
+.mine-side .qbox{padding:12px}
 @media (max-width:640px){
+  .shaft canvas{max-width:min(300px, calc(46vh * 0.571))}
   .crys-wrap,.mine-wrap{grid-template-columns:minmax(0,1fr)}
   .key{min-height:58px}
 }
@@ -302,15 +314,15 @@ function drawNum(ctx, str, cx, cy, col='#221a14', hi='rgba(255,255,255,.2)', s=P
 const STONE_PAL = {base:'#6e6052', lo:'#5e5146', hi:'#857565', hi2:'#a39280', dk:'#3f352d', o:'#1f1813'};
 const CRYS_PAL  = {base:'#5fd3c6', lo:'#4cbfb3', hi:'#8ff0e4', hi2:'#c9fff6', dk:'#2b8f8a', o:'#0d3b3f'};
 const BAD_PAL   = {base:'#b0543f', lo:'#984535', hi:'#c96a52', hi2:'#e38b70', dk:'#6e2a20', o:'#2a0e0a'};
-function makeStone(w, h, seed, pal=STONE_PAL, ore=true, clean=false){
+function makeStone(w, h, seed, pal=STONE_PAL, ore=true, clean=false, plain=false){
   // clean: середина остаётся гладкой, чтобы цифры читались
   const c = canvasOf(w,h), x = c.getContext('2d'), r = rng(seed);
   for(let j=0;j<h;j++) for(let i=0;i<w;i++){ const v = r(); x.fillStyle = v<.18 ? pal.lo : v>.86 ? pal.hi : pal.base; x.fillRect(i,j,1,1); }
   x.fillStyle = pal.hi2; x.fillRect(1,1,w-2,1); x.fillRect(1,1,1,h-2);
   x.fillStyle = pal.dk;  x.fillRect(1,h-2,w-2,1); x.fillRect(w-2,1,1,h-2);
   const edgeX = () => clean ? (r()<.5 ? 2+(r()*3|0) : w-5+(r()*3|0)) : 2+(r()*(w-4))|0;
-  for(let k=0;k<2;k++){ let cx = edgeX(), cy = 2+(r()*(h-4))|0; for(let s=0;s<5;s++){ x.fillRect(cx,cy,1,1); cx += r()<.5?1:-1; cy += r()<.6?1:0; if(cx<2||cx>w-3||cy>h-3||(clean && cx>5 && cx<w-6)) break; } }
-  if(ore) for(let k=0;k<3;k++){ const ox = Math.min(w-4, edgeX()), oy = 2+(r()*(h-5))|0, g = r()<.5 ? ['#f7c548','#fff1c2'] : ['#5fd3c6','#c9fff6']; x.fillStyle = g[0]; x.fillRect(ox,oy,2,1); x.fillStyle = g[1]; x.fillRect(ox,oy,1,1); }
+  if(!plain) for(let k=0;k<2;k++){ let cx = edgeX(), cy = 2+(r()*(h-4))|0; for(let s=0;s<5;s++){ x.fillRect(cx,cy,1,1); cx += r()<.5?1:-1; cy += r()<.6?1:0; if(cx<2||cx>w-3||cy>h-3||(clean && cx>5 && cx<w-6)) break; } }
+  if(plain){} else if(ore) for(let k=0;k<3;k++){ const ox = Math.min(w-4, edgeX()), oy = 2+(r()*(h-5))|0, g = r()<.5 ? ['#f7c548','#fff1c2'] : ['#5fd3c6','#c9fff6']; x.fillStyle = g[0]; x.fillRect(ox,oy,2,1); x.fillStyle = g[1]; x.fillRect(ox,oy,1,1); }
   else for(let k=0;k<4;k++){ x.fillStyle = '#ffffff'; x.fillRect(edgeX(), 2+(r()*(h-4))|0, 1, 1); }
   x.fillStyle = pal.o; x.fillRect(1,0,w-2,1); x.fillRect(1,h-1,w-2,1); x.fillRect(0,1,1,h-2); x.fillRect(w-1,1,1,h-2);
   return c;
@@ -341,6 +353,25 @@ function twinkle(ctx, x, y, ph){
   ctx.fillStyle = arm===2 ? '#fff2a8' : '#c9fff6';
   for(let a=1;a<=arm;a++){ ctx.fillRect(x+a*P, y, P, P); ctx.fillRect(x-a*P, y, P, P); ctx.fillRect(x, y+a*P, P, P); ctx.fillRect(x, y-a*P, P, P); }
 }
+
+
+/* камни с крупными пиксельными цифрами для Тропы, Эха и клавиатуры Забоя */
+const _tiles = new Map();
+function numTile(val, kind='stone', w=16, h=16){
+  const key = [kind,val,w,h].join(':'); if(_tiles.has(key)) return _tiles.get(key);
+  const pal = kind==='crys' ? CRYS_PAL : kind==='bad' ? BAD_PAL : STONE_PAL;
+  const c = makeStone(w, h, 101 + (+val||0)*7 + kind.length, pal, false, true, true), x = c.getContext('2d'), str = String(val);
+  if(str){
+    const wd = str.length*6-1, x0 = Math.floor((w-wd)/2), y0 = Math.floor((h-8)/2);
+    const ink = kind==='crys' ? '#0d3b3f' : kind==='bad' ? '#2a0e0a' : '#221a14';
+    for(const [col,dy] of [['rgba(255,255,255,.3)',1],[ink,0]]){
+      x.fillStyle = col;
+      [...str].forEach((ch,k)=>DIG[ch]?.forEach((r,j)=>{ for(let i=0;i<5;i++) if(r[i]==='#') x.fillRect(x0+k*6+i, y0+j+dy, 1, 1); }));
+    }
+  }
+  const url = `url(${c.toDataURL()})`; _tiles.set(key, url); return url;
+}
+function setTile(el, val, kind='stone', w=16, h=16){ el.style.backgroundImage = numTile(val, kind, w, h); el.setAttribute('aria-label', val===''?'камень':val); }
 
 /* текстуры для обычных экранов */
 const STONE_URL = makeStone(16,16,11).toDataURL(), CRYS_URL = makeStone(16,16,5,CRYS_PAL,false).toDataURL();
@@ -374,6 +405,10 @@ const fx = (()=>{
   const kick = ()=>{ if(!raf) raf = requestAnimationFrame(loop); };
   const center = el => { const r = el.getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; };
   return {
+    gemAt(x, y, kind='cyan'){
+      const t = $('#gemc'); if(!t) return;
+      const [tx,ty] = center(t); fly.push({sx:x, sy:y, tx, ty, cx:(x+tx)/2, cy:Math.min(y,ty)-120, t:0, kind}); kick();
+    },
     burst(el, n=18, ramp=RAMP.gem, o={}){ if(!el) return; const [cx,cy] = center(el); spawnParts(parts, cx, cy, n, ramp, {speed:260, size:4, life:.6, ...o}); kick(); },
     gemTo(el, kind='cyan'){
       const t = $('#gemc'); if(!el||!t) return;
@@ -514,7 +549,7 @@ function rhythm(n){
     <div class="intro">${gnome(t)}<p>${t.name} идёт по камням и бьёт киркой на каждом ${n}-м шаге. Сначала послушай ритм, потом найди все самоцветы по порядку.</p></div>
     <div class="row"><button class="pbtn alt" id="listen">Послушать ритм</button></div>
     <div class="say" id="say">Где первый самоцвет?</div>
-    <div class="grid" id="grid">${Array.from({length:total},(_,i)=>`<button class="blk" data-v="${i+1}">${i+1}</button>`).join('')}</div>
+    <div class="grid" id="grid">${Array.from({length:total},(_,i)=>`<button class="blk" data-v="${i+1}" aria-label="${i+1}" style="background-image:${numTile(i+1)}"></button>`).join('')}</div>
     <div class="chain" id="chain"></div>${bipHTML()}`;
   const blk = v => $(`.blk[data-v="${v}"]`), say = s => $('#say').textContent = s;
   function stopListen(){ if(playing){ clearInterval(playing); playing=null; document.querySelectorAll('.blk.step,.blk.beat').forEach(b=>b.classList.remove('step','beat')); $('#listen').textContent='Послушать ритм'; } }
@@ -533,7 +568,7 @@ function rhythm(n){
     stopListen();
     const v = +b.dataset.v, want = n*k;
     if(v===want){
-      b.classList.remove('hint'); b.classList.add('gem'); chime(k-1); addGems(1,b); bipSay('Бип!');
+      b.classList.remove('hint'); b.classList.add('gem'); setTile(b, v, 'crys'); chime(k-1); addGems(1,b); bipSay('Бип!');
       $('#chain').insertAdjacentHTML('beforeend',`<span>${v}</span>`);
       misses = 0; k++;
       if(k>10){ say(`Все десять самоцветов: ${n}, ${2*n}, ${3*n} … ${10*n}`); return finish(); }
@@ -610,7 +645,7 @@ function crystal(n){
   }
 }
 
-/* ---------- 3. Забой: вспомнить ответ ---------- */
+/* ---------- 3. Забой: гном прокапывает шахту до кристалла ---------- */
 function weight(a,b){ const f = S.facts[fk(a,b)] || {ok:0,bad:0}; return Math.max(0.4, 1 + f.bad*1.5 - f.ok*0.25); }
 function pickWeighted(pool, cnt){
   pool = pool.map(p=>({...p, w:weight(p.n,p.k)})); const res = [];
@@ -621,8 +656,125 @@ function pickWeighted(pool, cnt){
   }
   return res;
 }
+const LAYERS = [
+  {base:'#7a5236', lo:'#6a4630', hi:'#8c6040', hi2:'#a07050', dk:'#4a3020', o:'#2a1a10'},
+  STONE_PAL,
+  {base:'#4f463f', lo:'#453d37', hi:'#5f554c', hi2:'#73685d', dk:'#2e2823', o:'#1a1512'},
+  {base:'#3a3540', lo:'#302c36', hi:'#4a4452', hi2:'#5c5566', dk:'#221e28', o:'#141018'},
+];
+function makeShaft(cv, t, rows){
+  const W = 240, H = 420, B = 48, TOP = 144, CH = TOP + rows*B, FLOOR = CH + 2*B, ctx = cv.getContext('2d');
+  const layerOf = r => LAYERS[Math.min(3, Math.floor(r/rows*4))];
+  const tex = Array.from({length:rows+3}, (_,r)=>Array.from({length:5},(_,c)=>makeStone(16,16, 500+r*5+c, r<rows ? layerOf(r) : LAYERS[3], Math.random()<.35)));
+  const air = makeRock(80, 60, 5), hole = makeRock(16, 16, 8);
+  const gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+t.n), pickS = sprCanvas(ART.pick, PAL.pick, 'pick');
+  let row = 0, gy = TOP, camY = 0, clock = 0, parts = [], queue = [], anim = null, cracks = {}, glowK = 0, finaleCb = null, over = false, raf = 0, lastT = 0;
+  const broken = new Set();
+  function fit(){ const r = cv.getBoundingClientRect(), d = window.devicePixelRatio||1; cv.width = Math.round(r.width*d); cv.height = Math.round(r.height*d); ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0); ctx.imageSmoothingEnabled = false; }
+  fit(); const ro = new ResizeObserver(fit); ro.observe(cv);
+  const toClient = (x,y) => { const r = cv.getBoundingClientRect(); return [r.left + x/W*r.width, r.top + (y-camY)/H*r.height]; };
+  function next(){
+    if(anim || !queue.length) return;
+    const cmd = queue.shift();
+    if(cmd.type==='dig' || cmd.type==='clang') anim = {type:'swing', t:0, then:cmd};
+    else if(cmd.type==='finale') anim = {type:'finale', t:0, cb:cmd.cb};
+  }
+  function strike(cmd){
+    const bx = W/2, by = TOP + row*B + B/2, pal = row<rows ? layerOf(row) : LAYERS[3];
+    if(cmd.type==='clang'){
+      cracks[row] = Math.min(2, (cracks[row]||0)+1);
+      spawnParts(parts, bx+10, by-B/2, 14, RAMP.fire, {speed:220, up:true, life:.45});
+      tone(1200,0.08,0.08,'square'); tone(600,0.15,0.06,'square',0.03);
+      anim = null; return;
+    }
+    broken.add(row);
+    spawnParts(parts, bx, by, 18, [pal.hi2, pal.hi, pal.base, pal.dk], {speed:240, size:2*P, g:900, life:.8});
+    spawnParts(parts, bx, by, 10, RAMP.dust, {speed:70, g:-30, life:1, size:2*P});
+    tone(180,0.12,0.12,'square'); tone(90,0.2,0.1,'triangle',0.03);
+    if(cmd.gem){
+      spawnParts(parts, bx, by, 20, RAMP.gem, {speed:260, life:.7});
+      const [x,y] = toClient(bx, by); fx.gemAt(x, y, cmd.kind || 'cyan');
+    }
+    row++;
+    anim = {type:'fall', t:0, from:gy, to: row>=rows ? FLOOR : TOP + row*B};
+  }
+  function update(dt){
+    clock += dt;
+    if(anim){
+      anim.t += dt;
+      if(anim.type==='swing' && anim.t>=0.22) strike(anim.then);
+      else if(anim.type==='fall'){
+        const dur = anim.to-anim.from > B*1.5 ? 0.6 : 0.3, e = Math.min(1, anim.t/dur);
+        gy = anim.from + (anim.to-anim.from)*e*e;
+        if(e>=1){ gy = anim.to; anim = null; spawnParts(parts, W/2, gy, 6, RAMP.dust, {speed:60, up:true, g:200, life:.4}); if(row>=rows) chime(7); }
+      }
+      else if(anim.type==='finale'){
+        glowK = Math.min(1, anim.t/1.2);
+        if(Math.random()<0.5) spawnParts(parts, W/2+48+(Math.random()-.5)*40, FLOOR-30, 2, RAMP.gem, {speed:80, up:true, g:-40, life:1});
+        if(anim.t>=1.4){ const cb = anim.cb; anim = null; cb && cb(); }
+      }
+    }
+    next();
+    const target = Math.max(0, Math.min(FLOOR + B + 6 - H, gy - H*0.5));
+    camY += (target-camY)*Math.min(1, dt*6);
+    parts = stepParts(parts, dt);
+  }
+  function draw(){
+    ctx.fillStyle = '#100c09'; ctx.fillRect(0,0,W,H);
+    ctx.save(); ctx.translate(0, -snap(camY));
+    ctx.drawImage(air, 0, 0, W, 180);
+    glow(ctx, 30, 90, 70); blit(ctx, torchSpr(((clock*9)|0)%3), 20, 78);
+    blit(ctx, sprCanvas(CART, {o:'#1a120c', K:'#8b7b6b', k:'#5a4e44', h:'#b5a593', B:'#9c5b34', b:'#6e3d22', n:'#d8c8b0', C:'#5fd3c6', R:'#e3644d', Y:'#f7c548', W:'#ffffff', D:'#3a3330', d:'#8b7b6b'}, 'cart-big'), 165, TOP-42, 3);
+    for(let r=0; r<rows+3; r++){
+      const y = TOP + r*B;
+      if(y-camY > H || y+B-camY < 0) continue;
+      for(let c=0;c<5;c++){
+        const inChamber = r>=rows && r<rows+2 && c>0 && c<4;
+        if((c===2 && broken.has(r)) || inChamber){ ctx.drawImage(hole, c*B, y, B, B); ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(c*B, y, B, B); continue; }
+        ctx.drawImage(tex[r][c], c*B, y, B, B);
+      }
+      if(cracks[r] && !broken.has(r)){
+        ctx.fillStyle = '#120d0a';
+        const cx = 2*B;
+        [[6,2],[7,3],[7,4],[8,5],[9,5],[9,6],[10,7]].forEach(([i,j])=>ctx.fillRect(cx+i*P, y+j*P, P, P));
+        if(cracks[r]>1) [[5,8],[6,9],[6,10],[7,11],[10,8],[11,9],[12,10],[4,7]].forEach(([i,j])=>ctx.fillRect(cx+i*P, y+j*P, P, P));
+      }
+    }
+    // кристалл на дне
+    const gx = W/2+48, gyc = FLOOR-6, pulse = 0.5+0.5*Math.sin(clock*2.5);
+    glow(ctx, gx, gyc-30, 60 + glowK*60 + pulse*8);
+    if(glowK>0){ ctx.fillStyle = `rgba(95,211,198,${glowK*0.18})`; ctx.fillRect(B, CH, 3*B, 2*B); }
+    const big = gemSpr('cyan'), side = gemSpr('amethyst');
+    ctx.drawImage(side, snap(gx-46), snap(gyc-36), 30, 26);
+    ctx.drawImage(side, snap(gx+18), snap(gyc-30), 24, 21);
+    ctx.drawImage(big, snap(gx-23), snap(gyc-62), 45, 39);
+    ctx.drawImage(big, snap(gx-15), snap(gyc-21), 30, 26);
+    twinkle(ctx, gx-6, gyc-54, clock*1.7); twinkle(ctx, gx+24, gyc-24, clock*1.3+1);
+    if(glowK>0) twinkle(ctx, gx-36, gyc-30, clock*2.3+0.5);
+    // гном с киркой
+    blit(ctx, gnomeS, W/2-24, gy-66);
+    let ang = -0.5 + Math.sin(clock*2)*0.05;
+    if(anim && anim.type==='swing'){ const e = anim.t/0.22; ang = e<0.5 ? -0.5 - e*3.2 : -2.1 + (e-0.5)*2*2.8; }
+    ctx.save(); ctx.translate(W/2+16, gy-30); ctx.rotate(ang); ctx.drawImage(pickS, -6, -33, 36, 36); ctx.restore();
+    drawParts(ctx, parts);
+    ctx.restore();
+  }
+  function frame(ts){
+    const dt = Math.min(0.05, (ts-(lastT||ts))/1000); lastT = ts;
+    if(!document.hidden) update(dt);
+    draw();
+    if(!over) raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
+  return {
+    dig(gem, kind){ queue.push({type:'dig', gem, kind}); },
+    clang(){ queue.push({type:'clang'}); },
+    finale(cb){ queue.push({type:'finale', cb}); },
+    destroy(){ over = true; cancelAnimationFrame(raf); ro.disconnect(); },
+  };
+}
 function mine(arg){
-  const big = arg==='big', t = big ? null : tableOf(arg);
+  const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
   let qs;
   if(big){
     const pool = [], seen = new Set();
@@ -636,24 +788,27 @@ function mine(arg){
   qs = qs.map(q=>({...q, ans:q.n*q.k, flip:Math.random()<0.4}));
   let i = 0, typed = '', tries = 0, firstOk = 0, combo = 0, busy = false; const start = S.gems;
   app.innerHTML = `${bar(big ? 'Большая шахта' : 'Забой гнома '+t.name)}
-    <div class="ore" id="ore">${qs.map(()=>'<i></i>').join('')}</div>
     <div class="mine-wrap">
-      <div class="qbox">
-        <div class="muted" id="qnum"></div>
-        <div class="q" id="q"></div>
-        <div class="say" id="say"></div>
-        <div class="combo" id="combo"></div>
+      <div class="shaft"><canvas id="shaft" aria-label="Шахта: гном копает вниз к кристаллу"></canvas></div>
+      <div class="mine-side">
+        <div class="qbox">
+          <div class="muted" id="qnum"></div>
+          <div class="q" id="q"></div>
+          <div class="say" id="say">Решай пример, и гном ударит киркой.</div>
+          <div class="combo" id="combo"></div>
+        </div>
+        <div class="keys" id="keys">
+          ${[1,2,3,4,5,6,7,8,9].map(d=>`<button class="key num" data-k="${d}" aria-label="${d}"></button>`).join('')}
+          <button class="key del" data-k="del" aria-label="Стереть">⌫</button><button class="key num" data-k="0" aria-label="0"></button><button class="key ok" data-k="ok">ОК</button>
+        </div>
+        <button class="pbtn alt" id="hintb">Покажи ряды</button>
         <div id="arr" class="arr"></div>
         ${bipHTML()}
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div class="keys" id="keys">
-          ${[1,2,3,4,5,6,7,8,9].map(d=>`<button class="key" data-k="${d}">${d}</button>`).join('')}
-          <button class="key del" data-k="del" aria-label="Стереть">⌫</button><button class="key" data-k="0">0</button><button class="key ok" data-k="ok">ОК</button>
-        </div>
-        <button class="pbtn alt" id="hintb">Покажи ряды</button>
-      </div>
     </div>`;
+  document.querySelectorAll('.key.num').forEach(b=>setTile(b, b.dataset.k));
+  const shaft = makeShaft($('#shaft'), t, qs.length);
+  cleanup.push(()=>shaft.destroy());
   const say = s => $('#say').textContent = s;
   function showArr(q, full){
     $('#arr').innerHTML = Array.from({length:q.k},(_,r)=>`<div class="arr-row">${'<i></i>'.repeat(q.n)}<span class="${r===q.k-1?'last':''}">${r===q.k-1 && !full ? '?' : q.n*(r+1)}</span></div>`).join('')
@@ -661,7 +816,6 @@ function mine(arg){
   }
   function draw(){
     const q = qs[i];
-    document.querySelectorAll('#ore i').forEach((el,j)=>{ if(j===i) el.classList.add('cur'); });
     $('#qnum').textContent = q.review ? 'Повторим трудный пример' : `Пример ${i+1} из ${qs.length}`;
     $('#q').innerHTML = `${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = <span class="ans" id="ans">${typed||'?'}</span>`;
     $('#arr').innerHTML = '';
@@ -674,26 +828,28 @@ function mine(arg){
     $('#ans').textContent = typed || '?'; $('#ans').classList.remove('wrong');
   }
   function check(){
-    const q = qs[i], f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0}), cell = $('#ore').children[i];
+    const q = qs[i], f = (S.facts[fk(q.n,q.k)] ||= {ok:0,bad:0});
     if(+typed === q.ans){
-      busy = true; cell.classList.remove('cur');
+      busy = true;
       if(tries===0){
-        f.ok++; firstOk++; combo++; cell.classList.add('g1'); chime(combo+2); addGems(3, $('#ans'));
-        say(['Точно!','Верно!','Отличный удар!','Так держать!'][Math.random()*4|0]); bipSay('Бип!');
+        f.ok++; firstOk++; combo++; chime(combo+2);
+        shaft.dig(true, combo>=3 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan');
+        addGems(3);
+        say(['Точно! Камень раскололся.','Верно! Глубже!','Отличный удар!','Так держать!'][Math.random()*4|0]); bipSay('Бип!');
         if(combo%3===0){ setTimeout(()=>{ addGems(2, $('#combo')); $('#combo').textContent = `Серия ${combo}! +2 бонус`; tone(1568,0.5,0.12); }, 300); }
         else $('#combo').textContent = combo>1 ? `Серия: ${combo}` : '';
       } else {
-        cell.classList.add(tries===1?'g2':'g3'); chime(2);
-        if(tries===1){ addGems(1, $('#ans')); say('Получилось!'); } else say('Теперь запомнил. Вернёмся к нему позже.');
+        chime(2); shaft.dig(false);
+        if(tries===1){ addGems(1); say('Получилось! Камень поддался.'); } else say('Теперь запомнил. Вернёмся к нему позже.');
         $('#combo').textContent = '';
       }
       save(); showArr(q, true);
       setTimeout(()=>{ i++; typed=''; tries=0; busy=false; if(i<qs.length) draw(); else finish(); }, 1100);
     } else {
-      tries++; combo = 0; $('#combo').textContent=''; thud();
+      tries++; combo = 0; $('#combo').textContent=''; thud(); shaft.clang();
       if(tries===1){ f.bad++; save(); }
       $('#ans').classList.add('wrong');
-      if(tries===1){ say('Почти. Посмотри на ряды и прибавь ещё один.'); showArr(q, false); }
+      if(tries===1){ say('Дзынь! Кирка отскочила. Посмотри на ряды и прибавь ещё один.'); showArr(q, false); }
       else { say(`Ответ: ${q.ans}. Набери его сам, так он запомнится.`); showArr(q, true); }
       typed = ''; setTimeout(()=>{ const a=$('#ans'); if(a){ a.textContent='?'; a.classList.remove('wrong'); } }, 700);
     }
@@ -705,13 +861,16 @@ function mine(arg){
   draw();
   function finish(){
     const ratio = firstOk/qs.length, stars = ratio>=0.9?3:ratio>=0.7?2:1;
-    addGems(stars*5); fanfare();
-    let master = false;
-    if(big) S.bigBest = Math.max(S.bigBest, stars);
-    else { master = stars===3 && tp(arg).mine<3; tp(arg).mine = Math.max(tp(arg).mine, stars); }
-    save();
-    reward({title: master ? `Гном ${t.name} снимает шапку: ты мастер ×${arg}!` : 'Забой пройден!', stars, gained:S.gems-start,
-      line:`С первого раза: ${firstOk} из ${qs.length}`, again:['mine',arg]});
+    say('Гном добрался до кристалла!');
+    shaft.finale(()=>{
+      addGems(stars*5); fanfare();
+      let master = false;
+      if(big) S.bigBest = Math.max(S.bigBest, stars);
+      else { master = stars===3 && tp(arg).mine<3; tp(arg).mine = Math.max(tp(arg).mine, stars); }
+      save();
+      reward({title: master ? `Гном ${t.name} снимает шапку: ты мастер ×${arg}!` : 'Кристалл добыт!', stars, gained:S.gems-start,
+        line:`С первого раза: ${firstOk} из ${qs.length}`, again:['mine',arg]});
+    });
   }
 }
 
@@ -946,10 +1105,10 @@ function drumAt(at, vol=0.45){
 function echo(n){
   const t = tableOf(n), total = n*10, start = S.gems;
   let level = 1, mic = null, running = false, over = false, raf = 0;
-  let t0 = 0, interval = 0.85, lat = 0, scheduled = 0, curIdx = -2, combo = 0, mult = 1, wrong = 0;
+  let t0 = 0, interval = 0.85, lat = 0, scheduled = 0, curIdx = -2, combo = 0, mult = 1, wrong = 0, lastWrong = -99, lastHit = -99;
   const hits = new Set(), missed = new Set();
   app.innerHTML = `${bar('Эхо гнома '+t.name)}
-    <div class="intro">${gnome(t)}<p>${t.name} бьёт в барабан и считает: 1, 2, 3… На каждом <b>${n}-м</b> ударе хлопни в ладоши, и пещера ответит эхом.</p></div>
+    <div class="intro">${gnome(t)}<p>${t.name} бьёт в барабан и считает: 1, 2, 3… На каждом <b>${n}-м</b> ударе хлопни в ладоши, и пещера ответит эхом. Лишние хлопки путают эхо: после них следующий самоцвет не засчитается.</p></div>
     <section class="card" id="setup">
       <h3>Как играем?</h3>
       <div class="levels">
@@ -1007,16 +1166,26 @@ function echo(n){
     const rel = (at-t0-lat)/interval, i = Math.round(rel), dt = (rel-i)*interval;
     const isMult = i>=0 && i<total && (i+1)%n===0;
     if(isMult && dt>-0.25 && dt<0.33 && !hits.has(i) && !missed.has(i)){
-      hits.add(i); combo++; mult = combo>=6 ? 3 : combo>=3 ? 2 : 1;
-      const b = $(`#grid .blk[data-i="${i}"]`); b.classList.remove('hint'); b.classList.add('gem'); b.textContent = i+1;
+      // хлопал без остановки: эхо спуталось, самоцвет не засчитан
+      if(at-lastWrong < interval*1.6){
+        missed.add(i); combo = 0; mult = 1; $('#combo').textContent = ''; thud();
+        const b = $(`#grid .blk[data-i="${i}"]`); b.classList.remove('hint'); b.classList.add('miss'); setTile(b, i+1, 'bad');
+        say('Эхо спуталось! Хлопай только на нужном числе.');
+        return;
+      }
+      hits.add(i); lastHit = at; combo++; mult = combo>=6 ? 3 : combo>=3 ? 2 : 1;
+      const b = $(`#grid .blk[data-i="${i}"]`); b.classList.remove('hint'); b.classList.add('gem'); setTile(b, i+1, 'crys');
       tone(PENTA[(hits.size+3)%10], 0.5, 0.16); tone(PENTA[(hits.size+3)%10], 0.4, 0.06, 'sine', 0.22); tone(PENTA[(hits.size+3)%10], 0.3, 0.025, 'sine', 0.44);
       if(mic) mic.mute = AC.currentTime + 0.8;
       addGems(2*mult, $('#clap'));
       say(`${i+1}! Эхо отвечает.`);
       $('#combo').textContent = mult>1 ? `Серия ${combo}: самоцветы ×${mult}` : '';
-    } else if(!(isMult && hits.has(i))){
-      wrong++; combo = 0; mult = 1; $('#combo').textContent = '';
-      say('Тсс… этот камень молчит.');
+    } else if(at-lastHit > 0.15){
+      wrong++; lastWrong = at; combo = 0; mult = 1; $('#combo').textContent = '';
+      say(wrong>=3 ? `Лишних хлопков: ${wrong}. Эхо путается, звёзд будет меньше.` : 'Тсс… этот камень молчит.');
+      tone(196, 0.15, 0.1, 'sawtooth');
+      const wb = i>=0 && i<total && !hits.has(i) && !missed.has(i) && $(`#grid .blk[data-i="${i}"]`);
+      if(wb){ setTile(wb, i+1, 'bad'); wb.classList.remove('no'); void wb.offsetWidth; wb.classList.add('no'); }
       const nEl = $('#num'); nEl.classList.remove('no'); void nEl.offsetWidth; nEl.classList.add('no');
     }
   }
@@ -1028,7 +1197,7 @@ function echo(n){
     const ac = getAC(); await ac.resume();
     interval = [0, 0.85, 0.7, 0.75][level];
     lat = ac.outputLatency || ac.baseLatency || 0;
-    $('#grid').innerHTML = Array.from({length:total},(_,i)=>`<button class="blk" tabindex="-1" data-i="${i}">${level===3?'':i+1}</button>`).join('');
+    $('#grid').innerHTML = Array.from({length:total},(_,i)=>`<button class="blk" tabindex="-1" data-i="${i}" style="background-image:${numTile(level===3?'':i+1)}"></button>`).join('');
     $('#setup').hidden = true; $('#play').hidden = false;
     t0 = ac.currentTime + 0.4 + 3*interval; scheduled = 0;
     for(let c=3;c>=1;c--) tone(1320, 0.08, 0.12, 'triangle', t0 - c*interval - ac.currentTime);
@@ -1038,7 +1207,7 @@ function echo(n){
   function finish(){
     running = false; over = true;
     addGems(5); fanfare();
-    const k = hits.size, stars = k===10 && wrong<=1 ? 3 : k>=7 ? 2 : 1;
+    const k = hits.size, stars = k===10 && wrong<=1 ? 3 : k>=7 && wrong<=4 ? 2 : 1;
     tp(n).echo = Math.max(tp(n).echo||0, stars); save();
     const lvlName = ['','с подсказкой','сам','в уме'][level];
     reward({title:'Пещера отозвалась эхом!', stars, gained:S.gems-start,
@@ -1056,14 +1225,14 @@ function echo(n){
         const num = $('#num'), cnt = idx+1;
         num.textContent = level===3 ? '•' : cnt;
         num.classList.remove('beat'); void num.offsetWidth; num.classList.add('beat');
-        const b = $(`#grid .blk[data-i="${idx}"]`); b.classList.add('step'); if(level===3 && !b.textContent) b.textContent = cnt;
+        const b = $(`#grid .blk[data-i="${idx}"]`); b.classList.add('step'); if(level===3 && !b.dataset.shown){ b.dataset.shown = 1; if(!b.classList.contains('gem') && !b.classList.contains('miss')) setTile(b, cnt); }
         if(idx===0) say('');
         if(level===1){ const nx = $(`#grid .blk[data-i="${idx+1}"]`); if(nx && (idx+2)%n===0) nx.classList.add('hint'); }
       }
       for(let i=n-1;i<total;i+=n){
         if(!hits.has(i) && !missed.has(i) && now > t0+lat+i*interval+0.36){
           missed.add(i); combo = 0; mult = 1; $('#combo').textContent = '';
-          const b = $(`#grid .blk[data-i="${i}"]`); b.classList.remove('hint'); b.classList.add('miss'); b.textContent = i+1;
+          const b = $(`#grid .blk[data-i="${i}"]`); b.classList.remove('hint'); b.classList.add('miss'); setTile(b, i+1, 'bad');
           say(`Пропустили ${i+1}. Слушай дальше!`);
         }
       }
