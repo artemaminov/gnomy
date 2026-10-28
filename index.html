@@ -299,6 +299,7 @@ const GEMS = {
 };
 const GEM_KINDS = Object.keys(GEMS);
 const gemSpr = kind => sprCanvas(ART.gem, GEMS[kind], 'gem-'+kind);
+const starSpr = () => sprCanvas(ART.star, PAL.star, 'star');   // очки внутри игр
 const RAMP = {
   fire:  ['#ffffff','#fff2a8','#f7c548','#f2b347','#c9862a','#7a3d12'],
   gem:   ['#ffffff','#c9fff6','#8ff0e4','#5fd3c6','#2b8f8a'],
@@ -446,14 +447,14 @@ const tableOf = n => TABLES.find(t=>t.n===n);
 
 /* ---------- сохранение (только на этом планшете) ---------- */
 const KEY = 'shahta-gnomov-v1';
-function fresh(){ return {gems:0, kr:0, own:[], sel:7, t:{}, facts:{}, crystals:[], bigBest:0, sound:true}; }
+function fresh(){ return {gems:0, kr:0, econ:2, own:[], sel:7, t:{}, facts:{}, crystals:[], bigBest:0, sound:true}; }
 function load(){
   try{
     const d = JSON.parse(localStorage.getItem(KEY));
     if(d && d.t){
       const m = Object.assign(fresh(), d);
-      // переход со старых самоцветов: накопленное превращается в несколько стартовых кристаллов
-      if(d.kr===undefined) m.kr = Math.min(6, Math.floor((d.gems||0)/15));
+      // новая экономика: кристаллы считаются с нуля (старые самоцветы не переносятся)
+      if(d.econ!==2){ m.kr = 0; m.econ = 2; }
       return m;
     }
   }catch(e){}
@@ -666,7 +667,6 @@ function makeShaft(cv, t, rows){
     tone(180,0.12,0.12,'square'); tone(90,0.2,0.1,'triangle',0.03);
     if(cmd.gem){
       spawnParts(parts, bx, by, 20, RAMP.gem, {speed:260, life:.7});
-      const [x,y] = toClient(bx, by); fx.gemAt(x, y, cmd.kind || 'cyan');
     }
     row++;
     anim = {type:'fall', t:0, from:gy, to: row>=rows ? FLOOR : TOP + row*B};
@@ -873,7 +873,7 @@ function drawHud(ctx, W, {hearts, maxHearts, mult, right, total, done, q, clock,
   ctx.fillStyle = '#2b231c'; ctx.fillRect(0,69,W,6);
   const full = sprCanvas(HEART, {o:'#3a0e0c', R:'#e3644d', W:'#ffc2b5'}, 'heart'), empty = sprCanvas(HEART, {o:'#1a120c', R:'#3a2f28', W:'#4a3f36'}, 'heart0');
   for(let i=0;i<maxHearts;i++) ctx.drawImage(i<hearts ? full : empty, 9+i*24, 9, 21, 21);
-  ctx.drawImage(gemSpr('cyan'), W-84, 40, 22.5, 19.5);
+  ctx.drawImage(starSpr(), W-84, 41, 27, 21);
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '700 20px "Balsamiq Sans", sans-serif';
   ctx.fillStyle = '#5fd3c6'; ctx.fillText(label ?? `${right}/${total}`, W-10, 51);
   if(mult>1){ ctx.fillStyle = Math.sin(clock*12)>0 ? '#fff2a8' : '#f7c548'; ctx.fillText('×'+mult, W-10, 20); }
@@ -913,7 +913,7 @@ function race(arg){
         ${px(CART, cartPal)}
         <h2>Вагонетка мчится по шахте!</h2>
         <p>Наверху пример. Навстречу летят три камня с ответами. Переезжай на рельсы с <b>правильным</b> ответом и лови его.</p>
-        <p class="muted">Знаешь ответ сразу? Проведи пальцем вверх (или ↑), и вагонетка рванёт к камню. Три верных подряд: самоцветы ×2, шесть подряд: ×3.</p>
+        <p class="muted">Знаешь ответ сразу? Проведи пальцем вверх (или ↑), и вагонетка рванёт к камню. Три верных подряд: очки ×2, шесть подряд: ×3.</p>
         ${shield ? '<p style="color:var(--gem)">Робот Бип едет с тобой и один раз защитит от удара.</p>' : ''}
         <button class="pbtn" id="gobtn">Поехали!</button>
       </div>
@@ -940,7 +940,7 @@ function race(arg){
       spawnParts(parts, x, y, 10, RAMP.fire, {speed:180, up:true, life:.5});
       gemsFly.push({sx:x, sy:y, t:0, kind: mult>1 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan'});
       chime(Math.min(9, combo)); if(mult>was) tone(1568,0.4,0.12,'sine',0.1);
-      flash = {text: mult>was ? `Серия! Самоцветы ×${mult}` : `+${g}`, color:'#5fd3c6', t:0.7, small: mult===was};
+      flash = {text: mult>was ? `Серия! Очки ×${mult}` : `+${g}`, color:'#5fd3c6', t:0.7, small: mult===was};
       v = Math.min(VMAX, v*1.07); pause = 0.35;
     } else {
       wave.hit = 'bad'; f.bad++; crashes++; combo = 0; mult = 1;
@@ -1027,7 +1027,7 @@ function race(arg){
     for(const f of gemsFly){
       const e = f.t, tx = W-73, ty = 50, mx = (f.sx+tx)/2, my = Math.min(f.sy,ty)-60;
       const ix = (1-e)*(1-e)*f.sx + 2*(1-e)*e*mx + e*e*tx, iy = (1-e)*(1-e)*f.sy + 2*(1-e)*e*my + e*e*ty;
-      const g = gemSpr(f.kind), sw = Math.max(P, Math.abs(Math.cos(f.t*10))*g.width*P);
+      const g = starSpr(), sw = Math.max(P, Math.abs(Math.cos(f.t*10))*g.width*P);
       ctx.drawImage(g, snap(ix-sw/2), snap(iy-g.height*1.5), sw, g.height*P);
     }
     ctx.restore();
@@ -1152,7 +1152,7 @@ function echo(n){
       if(mic) mic.mute = AC.currentTime + 0.8;
       addGems(2*mult, $('#clap'));
       say(`${i+1}! Эхо отвечает.`);
-      $('#combo').textContent = mult>1 ? `Серия ${combo}: самоцветы ×${mult}` : '';
+      $('#combo').textContent = mult>1 ? `Серия ${combo}!` : '';
     } else if(at-lastHit > 0.15){
       wrong++; lastWrong = at; combo = 0; mult = 1; $('#combo').textContent = '';
       say(wrong>=3 ? `Лишних хлопков: ${wrong}. Эхо путается, звёзд будет меньше.` : 'Тсс… этот камень молчит.');
@@ -1321,7 +1321,7 @@ function throwGame(arg){
       gemsFly.push({sx:x, sy, t:0, kind: mult>1 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan'});
       chime(Math.min(9, combo)); if(mult>was) tone(1568,0.4,0.12,'sine',0.1);
       tone(220, 0.15, 0.1, 'square'); tone(880, 0.12, 0.05, 'square', 0.04);
-      flash = {text: mult>was ? `Серия! Самоцветы ×${mult}` : `+${g}`, color:'#5fd3c6', t:0.8, small: mult===was};
+      flash = {text: mult>was ? `Серия! Очки ×${mult}` : `+${g}`, color:'#5fd3c6', t:0.8, small: mult===was};
       pause = 1.0; save();
     } else {
       s.hitBad = true; shake = 0.2;
@@ -1431,7 +1431,7 @@ function throwGame(arg){
     for(const f of gemsFly){
       const e = f.t, tx = W-73, ty = 50, mx = (f.sx+tx)/2, my = Math.min(f.sy,ty)-80;
       const ix = (1-e)*(1-e)*f.sx + 2*(1-e)*e*mx + e*e*tx, iy = (1-e)*(1-e)*f.sy + 2*(1-e)*e*my + e*e*ty;
-      const g = gemSpr(f.kind), sc = e<0.15 ? P*(1+ (0.15-e)*8) : P, sw = Math.max(P, Math.abs(Math.cos(f.t*10))*g.width*sc);
+      const g = starSpr(), sc = e<0.15 ? P*(1+ (0.15-e)*8) : P, sw = Math.max(P, Math.abs(Math.cos(f.t*10))*g.width*sc);
       ctx.drawImage(g, snap(ix-sw/2), snap(iy-g.height*sc/2), sw, g.height*sc);
     }
     ctx.restore();
@@ -1621,7 +1621,7 @@ function home(){
         <p>Все трудные гномы копают вместе. Трудные примеры попадаются чаще, пока не станут лёгкими.</p></div></div>
       <div class="row" style="justify-content:space-between; align-items:center">${starsHTML(Math.max(S.bigBest, S.bigRace||0, S.bigThrow||0))}<span class="row"><button class="pbtn alt" data-go="mine" data-arg="big">Забой</button><button class="pbtn" data-go="race" data-arg="big">Гонка</button><button class="pbtn" data-go="throw" data-arg="big">Броски</button></span></div>
     </section>
-    <p class="muted" style="font-size:15px">За каждую пройденную игру гном дарит один кристалл. Гонку и Броски нужно пройти до конца. Верхний ряд помогает понять таблицу, нижний закрепляет её.</p>`;
+    <p class="muted" style="font-size:15px">Кристалл гном дарит только за отличную игру: три звезды. Верхний ряд помогает понять таблицу, нижний закрепляет её.</p>`;
   function card(){
     const t = tableOf(S.sel), p = tp(t.n);
     $('#gcard').innerHTML = `<section class="card">
@@ -1666,7 +1666,7 @@ function crystalSVG(n){
 function treasury(){
   const hard = Object.entries(S.facts).map(([k,f])=>({k, s:f.bad*2-f.ok})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s).slice(0,8);
   app.innerHTML = `${bar('Сокровищница')}
-    <p class="muted">У тебя <b style="color:var(--gem)">${S.kr}</b> ${plural(S.kr,'кристалл','кристалла','кристаллов')}. Каждая пройденная игра приносит ещё один. Покупки появляются в пещере.</p>
+    <p class="muted">У тебя <b style="color:var(--gem)">${S.kr}</b> ${plural(S.kr,'кристалл','кристалла','кристаллов')}. Ещё один гном дарит за каждую игру на три звезды. Покупки появляются в пещере.</p>
     <div class="items">${CAVE_ITEMS.map(it=>{ const has = own(it.key), can = S.kr>=it.price; return `<div class="item ${has?'owned':''}">
       <img class="prev" src="${itemPreview(it)}" alt="">
       <h3>${it.name}</h3><small>${it.text}</small>${it.perk ? `<small class="perk">${it.perk}</small>` : ''}
@@ -1707,6 +1707,8 @@ const plural = (n, one, few, many) => { const a = n%10, b = n%100; return a===1 
 
 /* ---------- окно награды: один кристалл за пройденную игру ---------- */
 function reward({title, stars, line, again, next, crystalOf, crystal=1}){
+  // кристалл — только за отличное прохождение: три звезды (а в Гонке и Бросках ещё и до конца)
+  crystal = crystal && stars===3 ? 1 : 0;
   if(crystal) S.kr += crystal;
   save();
   const want = CAVE_ITEMS.find(i=>!own(i.key) && i.price<=S.kr);
@@ -1716,7 +1718,7 @@ function reward({title, stars, line, again, next, crystalOf, crystal=1}){
     <h2 style="color:var(--lamp)">${title}</h2>
     ${starsHTML(stars)}
     ${crystalOf ? `<div class="crystals">${crystalSVG(crystalOf)}</div>` : ''}
-    ${crystal ? `<div class="gain">${gemIco()}+1 кристалл</div>` : `<p class="muted">Кристалл достаётся тому, кто дойдёт до конца. Попробуй ещё раз!</p>`}
+    ${crystal ? `<div class="gain">${gemIco()}+1 кристалл</div>` : `<p class="muted">Кристалл гном дарит только за отличное прохождение: три звезды. Попробуй ещё раз!</p>`}
     ${line ? `<p>${line}</p>` : ''}
     ${want ? `<p class="perk">Кристаллов хватает на «${want.name}» в Сокровищнице.</p>` : ''}
     <div class="row">
