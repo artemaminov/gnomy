@@ -620,7 +620,7 @@ function crystal(n){
           ${!made && nx ? `<button class="pbtn" id="create" ${can?'':'disabled'}>${gemIco()} Создать за ${LAB_COST}</button>` : ''}
           <button class="pbtn alt" id="practice">Тренировка без кристаллов</button>
         </div>
-        ${!made && nx && !can ? `<p class="muted" style="font-size:15px">Не хватает ${LAB_COST-S.kr} ${plural(LAB_COST-S.kr,'кристалла','кристаллов','кристаллов')}. Кристалл дарят за любую игру на три звезды.</p>` : ''}
+        ${!made && nx && !can ? `<p class="muted" style="font-size:15px">Не хватает ${LAB_COST-S.kr} ${plural(LAB_COST-S.kr,'кристалла','кристаллов','кристаллов')}. За игру на три звезды дают 3 кристалла, на две звезды — 2.</p>` : ''}
       </section>`;
     $('#practice').onclick = ()=>board(false);
     const cb = $('#create'); if(cb) cb.onclick = ()=>{ if(S.kr>=LAB_COST) board(true); };
@@ -1775,7 +1775,7 @@ function home(){
         <p>Все трудные гномы копают вместе. Трудные примеры попадаются чаще, пока не станут лёгкими.</p></div></div>
       <div class="row" style="justify-content:space-between; align-items:center">${starsHTML(Math.max(S.bigBest, S.bigRace||0, S.bigThrow||0))}<span class="row"><button class="pbtn alt" data-go="mine" data-arg="big">Забой</button><button class="pbtn" data-go="race" data-arg="big">Гонка</button><button class="pbtn" data-go="throw" data-arg="big">Броски</button></span></div>
     </section>
-    <p class="muted" style="font-size:15px">Кристалл гном дарит за игру на три звезды. В Лаборатории каждый гном один раз создаёт для пещеры новую вещь${nx ? `, следующая — «${nx.name}»` : ''}.</p>`;
+    <p class="muted" style="font-size:15px">За игру на три звезды гном дарит 3 кристалла, на две звезды — 2. В Лаборатории каждый гном один раз создаёт для пещеры новую вещь${nx ? `, следующая — «${nx.name}»` : ''}.</p>`;
   function card(){
     const t = tableOf(S.sel), p = tp(t.n), made = S.made[t.n] && itemOf(S.made[t.n]);
     $('#gcard').innerHTML = `<section class="card">
@@ -1849,10 +1849,10 @@ function treasury(){
 }
 const plural = (n, one, few, many) => { const a = n%10, b = n%100; return a===1 && b!==11 ? one : a>=2 && a<=4 && (b<12 || b>14) ? few : many; };
 
-/* ---------- окно награды: один кристалл за отличную игру ---------- */
+/* ---------- окно награды: кристаллы по звёздам ---------- */
 function reward({title, stars, line, again, next, crystalOf, crystal=1}){
-  // кристалл — только за отличное прохождение: три звезды (а в Гонке и Бросках ещё и до конца)
-  crystal = crystal && stars===3 ? 1 : 0;
+  // три звезды — 3 кристалла, две — 2, одна — ничего (Гонку и Броски ещё нужно пройти до конца)
+  crystal = crystal && stars>=2 ? stars : 0;
   if(crystal) S.kr += crystal;
   save();
   const canLab = S.kr>=LAB_COST && nextItem() && TABLES.some(T=>!S.made[T.n]);
@@ -1862,7 +1862,7 @@ function reward({title, stars, line, again, next, crystalOf, crystal=1}){
     <h2 style="color:var(--lamp)">${title}</h2>
     ${starsHTML(stars)}
     ${crystalOf ? `<div class="crystals">${crystalSVG(crystalOf)}</div>` : ''}
-    ${crystal ? `<div class="gain">${gemIco()}+1 кристалл</div>` : (stars!==undefined ? `<p class="muted">Кристалл гном дарит только за отличное прохождение: три звезды. Попробуй ещё раз!</p>` : '')}
+    ${crystal ? `<div class="gain">${gemIco()}+${crystal} ${plural(crystal,'кристалл','кристалла','кристаллов')}</div>` : (stars!==undefined ? `<p class="muted">Кристаллы гном дарит за две звезды (2 кристалла) и за три звезды (3 кристалла). Попробуй ещё раз!</p>` : '')}
     ${line ? `<p>${line}</p>` : ''}
     ${canLab ? `<p class="perk">Кристаллов хватает, чтобы создать в Лаборатории «${nextItem().name}».</p>` : ''}
     <div class="row">
@@ -1874,7 +1874,7 @@ function reward({title, stars, line, again, next, crystalOf, crystal=1}){
   </div>`;
   document.body.appendChild(v);
   const g = v.querySelector('.gain') || v.querySelector('h2');
-  if(crystal) [0,250,500].forEach((d,i)=>setTimeout(()=>fx.burst(g, 26, i===1 ? RAMP.fire : RAMP.gem, {speed:380}), d));
+  if(crystal) [0,250,500].slice(0,crystal).forEach((d,i)=>setTimeout(()=>fx.burst(g, 26, i===1 ? RAMP.fire : RAMP.gem, {speed:380}), d));
 }
 
 go('home');
