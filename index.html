@@ -242,7 +242,8 @@ h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:va
 .lab-fail{background:var(--rock); border:3px solid var(--ruby); padding:14px; display:flex; flex-direction:column; gap:8px}
 .lab-fail .pbtn{display:flex; align-items:center; gap:8px}
 .lab-fail .pbtn .px{width:22px}
-.item.next{border-color:var(--lamp)}
+.mystery{display:grid; place-items:center; width:72px; height:72px; flex:none; border:2px dashed var(--rock-2); border-radius:10px; font-size:40px; font-weight:700; color:var(--lamp); opacity:.8}
+.lab-made .mystery{width:96px; height:96px; font-size:54px}
 .item.locked .prev{filter:brightness(0) opacity(.45)}
 @media (max-width:640px){
   .bar{flex-wrap:nowrap; gap:8px}
@@ -482,7 +483,7 @@ const tableOf = n => TABLES.find(t=>t.n===n);
 
 /* ---------- сохранение (только на этом планшете) ---------- */
 const KEY = 'shahta-gnomov-v1';
-function fresh(){ return {gems:0, kr:0, econ:3, own:[], made:{}, sel:7, t:{}, facts:{}, crystals:[], bigBest:0, sound:true}; }
+function fresh(){ return {gems:0, kr:0, econ:4, own:[], made:{}, sel:7, t:{}, facts:{}, crystals:[], bigBest:0, sound:true}; }
 function load(){
   try{
     const d = JSON.parse(localStorage.getItem(KEY));
@@ -491,7 +492,9 @@ function load(){
       // новая экономика: кристаллы считаются с нуля (старые самоцветы не переносятся)
       if(d.econ!==2 && d.econ!==3) m.kr = 0;
       // Лаборатория: вещи пещеры теперь создаются гномами, старые покупки убираются
-      if(d.econ!==3){ m.own = []; m.made = {}; m.econ = 3; }
+      if(d.econ!==3 && d.econ!==4){ m.own = []; m.made = {}; }
+      // у каждого гнома теперь своя вещь: Один — костёр, …, Девятко — трон
+      if(m.econ!==4){ m.made = Object.fromEntries(Object.keys(m.made).map(k=>[k, ['fire','torches','rug','angel','garland','chairs','fireplace','tree','throne'][k-1]])); m.own = Object.values(m.made); m.econ = 4; }
       return m;
     }
   }catch(e){}
@@ -605,15 +608,14 @@ function crystalPath(n){ return Array.from({length:10},(_,i)=>digitPos((n*(i+1))
 function crystal(n){
   const t = tableOf(n), who = (t.king?'короля ':'гнома ')+t.name;
   function intro(){
-    const made = S.made[n] && itemOf(S.made[n]), nx = nextItem(), can = !made && nx && S.kr>=LAB_COST;
+    const made = S.made[n] && itemOf(S.made[n]), nx = !made, can = nx && S.kr>=LAB_COST;
     app.innerHTML = `${bar('Лаборатория '+who)}
       <div class="intro">${gnome(t)}<p>В алхимической лаборатории ${t.name} чертит кристалл: на круге цифры от 0 до 9, считай ${n} × 1, ${n} × 2, ${n} × 3… и нажимай <b>последнюю цифру</b> ответа.</p></div>
       <section class="card lab-card">
         ${made ? `<div class="lab-made"><img class="prev" src="${itemPreview(made)}" alt=""><div><h3>${t.name} уже создал: ${made.name}</h3><p class="muted">Каждый гном создаёт для пещеры одну вещь. Здесь можно тренироваться.</p></div></div>`
-          : !nx ? `<h3>Все девять созданий уже в пещере!</h3><p class="muted">Здесь можно тренироваться.</p>`
-          : `<div class="lab-made"><img class="prev" src="${itemPreview(nx)}" alt=""><div>
-              <h3>Создать: ${nx.name}</h3>
-              <p>Каждый ответ стоит <b>1 кристалл</b>, всего ${LAB_COST}. Начерти кристалл без единой ошибки, и в пещере появится ${nx.name.toLowerCase()}.</p>
+          : `<div class="lab-made"><div class="mystery">?</div><div>
+              <h3>Тайное создание ${t.king?'короля':'гнома'} ${t.name}</h3>
+              <p>Каждый ответ стоит <b>1 кристалл</b>, всего ${LAB_COST}. Начерти кристалл без единой ошибки, и в пещере появится то, что умеет создавать только ${t.name}.</p>
               <p class="muted">Ошибёшься — потраченные кристаллы сгорят, но можно попробовать снова. У тебя ${S.kr} ${plural(S.kr,'кристалл','кристалла','кристаллов')}.</p>
             </div></div>`}
         <div class="row" style="justify-content:flex-start">
@@ -636,7 +638,7 @@ function crystal(n){
           ${Array.from({length:10},(_,d)=>{const [x,y]=digitPos(d); return `<g class="dot${d===0?' on':''}" data-d="${d}" role="button" aria-label="${d}"><circle cx="${x}" cy="${y}" r="30" fill="transparent"/><circle class="face" cx="${x}" cy="${y}" r="20"/><text x="${x}" y="${y}">${d}</text></g>`;}).join('')}
         </svg>
         <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-          <div class="lab-mode ${create?'create':''}">${create ? `Создание: «${nextItem().name}» · потрачено <b id="spent">0</b> из ${LAB_COST}` : 'Тренировка'}</div>
+          <div class="lab-mode ${create?'create':''}">${create ? `Создание тайной вещи · потрачено <b id="spent">0</b> из ${LAB_COST}` : 'Тренировка'}</div>
           <div class="q" id="q"></div>
           <div class="say" id="say"></div>
           <div class="row"><button class="pbtn alt" id="hintb">Подсказка</button></div>
@@ -689,7 +691,7 @@ function crystal(n){
       if(!S.crystals.includes(n)) S.crystals.push(n);
       tp(n).crystal = Math.max(tp(n).crystal||0, allMiss===0?3:allMiss<=3?2:1);
       let it = null;
-      if(create && !S.made[n] && (it = nextItem())){ S.own.push(it.key); S.made[n] = it.key; }
+      if(create && !S.made[n]){ it = itemFor(n); S.own.push(it.key); S.made[n] = it.key; }
       save();
       setTimeout(()=>{
         const v = document.createElement('div'); v.className = 'veil';
@@ -1677,13 +1679,13 @@ const CAVE_ITEMS = [
     draw(c){ const ox = 91; R_(c,ox,52,18,28,'#3a2414'); R_(c,ox+1,53,16,26,'#c99a3a'); R_(c,ox+1,53,16,1,'#f7c548'); R_(c,ox+3,55,12,22,'#8a2f4a'); R_(c,ox-1,66,20,3,'#c99a3a'); R_(c,ox-1,66,20,1,'#f7c548');
       R_(c,ox+1,78,3,2,'#3a2414'); R_(c,ox+14,78,3,2,'#3a2414'); R_(c,ox+8,52,2,2,'#5fd3c6'); R_(c,ox+2,80,14,1,'#8a2f2a');
       c.drawImage(sprCanvas(ART.gnome, gnomePal(tableOf(1)), 'gnome1'), ox+1, 50);
-      c.drawImage(sprCanvas(CROWN, {Y:'#f7c548', R:'#e3644d', C:'#5fd3c6'}, 'crown-s'), ox+5, 46); },
+      c.drawImage(sprCanvas(CROWN, {Y:'#f7c548', R:'#e3644d', C:'#5fd3c6'}, 'crown-s'), ox+6, 54); },
     over(c,t){ spark1(c, 96, 46, t*1.2, '#fff2a8'); spark1(c, 102, 47, t*1.2+1.1, '#fff2a8'); spark1(c, 99, 52, t*0.8+0.6, '#c9fff6'); },
     lights:t=>[{x:100,y:52,r:20+Math.sin(t*3)*2,c:'255,220,120'}]},
 ];
 const ORDER = CAVE_ITEMS.map(i=>i.key);
 const itemOf = key => CAVE_ITEMS.find(i=>i.key===key);
-const nextItem = () => CAVE_ITEMS.find(i=>!own(i.key));
+const itemFor = n => CAVE_ITEMS[n-1];   // свой объект у каждого гнома: от простого (Один) к сложному (Девятко)
 const LAB_COST = 10;
 const DRAW_ORDER = ['garland','chairs','fireplace','torches','throne','tree','rug','angel','fire'];
 let _caveBase = null;
@@ -1749,7 +1751,7 @@ function stepCaveParts(parts, t, dt){
 function drawCaveGnome(c, g, t, sel){
   const bob = g.T.n===sel && Math.sin(t*5)>0 ? 1 : 0;
   c.drawImage(sprCanvas(ART.gnome, gnomePal(g.T), 'gnome'+g.T.n), g.x-8, g.y-22-bob);
-  if(g.T.king) c.drawImage(sprCanvas(CROWN, {Y:'#f7c548', R:'#e3644d', C:'#5fd3c6'}, 'crown-s'), g.x-4, g.y-26-bob);
+  if(g.T.king) c.drawImage(sprCanvas(CROWN, {Y:'#f7c548', R:'#e3644d', C:'#5fd3c6'}, 'crown-s'), g.x-3, g.y-18-bob);
 }
 function itemPreview(it){
   const [x,y,w,h] = it.box, c = canvasOf(w, h), cx = c.getContext('2d');
@@ -1759,11 +1761,10 @@ function itemPreview(it){
 /* ---------- главная ---------- */
 function home(){
   if(!SPOTS[S.sel]) S.sel = 7;
-  const nx = nextItem();
   app.innerHTML = `${bar()}
     <div class="cave-wrap"><canvas id="cave" aria-label="Пещера гномов. Нажми на гнома, чтобы выбрать его"></canvas>
     </div>
-    ${S.own.length ? '' : '<p class="cave-tip">В пещере темно. Собери кристаллы и создай в Лаборатории костёр.</p>'}
+    ${S.own.length ? '' : '<p class="cave-tip">В пещере темно. Собери кристаллы и создай что-нибудь в Лаборатории.</p>'}
     <div class="row cave-actions">
       <span class="muted">Нажми на гнома, чтобы выбрать его</span>
       <button class="pbtn alt" data-go="treasury">Сокровищница · ${S.own.length} из ${CAVE_ITEMS.length}</button>
@@ -1775,7 +1776,7 @@ function home(){
         <p>Все трудные гномы копают вместе. Трудные примеры попадаются чаще, пока не станут лёгкими.</p></div></div>
       <div class="row" style="justify-content:space-between; align-items:center">${starsHTML(Math.max(S.bigBest, S.bigRace||0, S.bigThrow||0))}<span class="row"><button class="pbtn alt" data-go="mine" data-arg="big">Забой</button><button class="pbtn" data-go="race" data-arg="big">Гонка</button><button class="pbtn" data-go="throw" data-arg="big">Броски</button></span></div>
     </section>
-    <p class="muted" style="font-size:15px">За игру на три звезды гном дарит 3 кристалла, на две звезды — 2. В Лаборатории каждый гном один раз создаёт для пещеры новую вещь${nx ? `, следующая — «${nx.name}»` : ''}.</p>`;
+    <p class="muted" style="font-size:15px">За игру на три звезды гном дарит 3 кристалла, на две звезды — 2. В Лаборатории каждый гном один раз создаёт для пещеры свою тайную вещь.</p>`;
   function card(){
     const t = tableOf(S.sel), p = tp(t.n), made = S.made[t.n] && itemOf(S.made[t.n]);
     $('#gcard').innerHTML = `<section class="card">
@@ -1821,15 +1822,14 @@ function crystalSVG(n){
 }
 function treasury(){
   const hard = Object.entries(S.facts).map(([k,f])=>({k, s:f.bad*2-f.ok})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s).slice(0,8);
-  const nx = nextItem(), maker = key => { const n = Object.keys(S.made).find(n=>S.made[n]===key); return n ? tableOf(+n) : null; };
+  const maker = key => { const n = Object.keys(S.made).find(n=>S.made[n]===key); return n ? tableOf(+n) : null; };
   app.innerHTML = `${bar('Сокровищница')}
     <p class="muted">Здесь всё, что гномы создали в Лабораториях. Создание стоит ${LAB_COST} кристаллов: по одному за каждый ответ. Если ошибиться, потраченные кристаллы сгорают. У тебя <b style="color:var(--gem)">${S.kr}</b> ${plural(S.kr,'кристалл','кристалла','кристаллов')}.</p>
-    <div class="items">${CAVE_ITEMS.map((it,i)=>{ const has = own(it.key), m = maker(it.key), isNext = nx && nx.key===it.key; return `<div class="item ${has?'owned':isNext?'next':'locked'}">
-      <img class="prev" src="${itemPreview(it)}" alt="">
-      <h3>${i+1}. ${has || isNext ? it.name : '???'}</h3>
+    <div class="items">${CAVE_ITEMS.map((it,i)=>{ const has = own(it.key), m = maker(it.key); return `<div class="item ${has?'owned':'locked'}">
+      ${has ? `<img class="prev" src="${itemPreview(it)}" alt="">` : '<div class="mystery">?</div>'}
+      <h3>${i+1}. ${has ? it.name : '???'}</h3>
       ${has ? `<small>${it.text}</small>${it.perk ? `<small class="perk">${it.perk}</small>` : ''}<span class="muted">Создал ${m ? (m.king?'король ':'гном ')+m.name : 'гном'}</span>`
-        : isNext ? `<small>Следующее создание. Зайди в Лабораторию любого гнома, который ещё ничего не создавал.</small>`
-        : '<small>Появится позже</small>'}
+        : `<small>Тайна ${TABLES[i].king?'короля':'гнома'} ${TABLES[i].name}. Её можно создать в его Лаборатории.</small>`}
     </div>`; }).join('')}</div>
     <div class="section"><h2>Начерченные кристаллы</h2>
       ${S.crystals.length ? `<div class="crystals">${S.crystals.slice().sort((a,b)=>a-b).map(n=>`<figure>${crystalSVG(n)}<figcaption>×${n}</figcaption></figure>`).join('')}</div>
@@ -1858,7 +1858,7 @@ function reward({title, stars, line, again, next, crystalOf, crystal=1, once}){
   if(once){ const p = tp(once[1]), had = p[once[0]]||0; crystal = Math.max(0, earned-had); p[once[0]] = Math.max(had, earned); paidAll = earned>0 && !crystal || !earned && had>=3; }
   if(crystal) S.kr += crystal;
   save();
-  const canLab = S.kr>=LAB_COST && nextItem() && TABLES.some(T=>!S.made[T.n]);
+  const canLab = S.kr>=LAB_COST && TABLES.some(T=>!S.made[T.n]);
   const ritual = !ritualShown && Date.now()-T0 > 15*60*1000; if(ritual) ritualShown = true;
   const v = document.createElement('div'); v.className='veil';
   v.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
@@ -1867,7 +1867,7 @@ function reward({title, stars, line, again, next, crystalOf, crystal=1, once}){
     ${crystalOf ? `<div class="crystals">${crystalSVG(crystalOf)}</div>` : ''}
     ${crystal ? `<div class="gain">${gemIco()}+${crystal} ${plural(crystal,'кристалл','кристалла','кристаллов')}</div>${crystal<earned ? `<p class="muted">Это доплата до трёх звёзд: остальное ${tableOf(once[1]).name} уже подарил раньше.</p>` : once ? `<p class="muted">${earned<3 ? `За ${once[2]} на три звезды ${tableOf(once[1]).name} подарит ещё 1 кристалл, а потом это тренировка.` : `За ${once[2]} гном дарит кристаллы один раз. Дальше это тренировка.`}</p>` : ''}` : paidAll ? `<p class="muted">За ${once[2]} ${tableOf(once[1]).name} уже подарил кристаллы. Играть можно сколько хочешь, это тренировка.</p>` : (stars!==undefined ? `<p class="muted">Кристаллы гном дарит за две звезды (2 кристалла) и за три звезды (3 кристалла). Попробуй ещё раз!</p>` : '')}
     ${line ? `<p>${line}</p>` : ''}
-    ${canLab ? `<p class="perk">Кристаллов хватает, чтобы создать в Лаборатории «${nextItem().name}».</p>` : ''}
+    ${canLab ? `<p class="perk">Кристаллов хватает, чтобы создать в Лаборатории тайную вещь.</p>` : ''}
     <div class="row">
       ${next ? `<button class="pbtn" data-go="${next[0]}" data-arg="${next[1]}">${next[2]}</button>` : ''}
       <button class="pbtn ${next?'alt':''}" data-go="${again[0]}" data-arg="${again[1]}">Ещё раз</button>
