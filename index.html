@@ -595,7 +595,7 @@ function rhythm(n){
   function finish(){
     const stars = allMiss===0?3:allMiss<=3?2:1;
     tp(n).rhythm = Math.max(tp(n).rhythm, stars); addGems(5); save();
-    setTimeout(()=>reward({title:'Тропа пройдена!', stars, gained:S.gems-start, again:['rhythm',n], next:['crystal',n,'Дальше: Кристалл']}), 700);
+    setTimeout(()=>reward({title:'Тропа пройдена!', stars, once:['paidRhythm',n,'Тропу'], gained:S.gems-start, again:['rhythm',n], next:['crystal',n,'Дальше: Кристалл']}), 700);
   }
 }
 
@@ -1287,7 +1287,7 @@ function echo(n){
     const k = hits.size, stars = k===10 && wrong<=1 ? 3 : k>=7 && wrong<=4 ? 2 : 1;
     tp(n).echo = Math.max(tp(n).echo||0, stars); save();
     const lvlName = ['','с подсказкой','сам','в уме'][level];
-    reward({title:'Пещера отозвалась эхом!', stars, gained:S.gems-start,
+    reward({title:'Пещера отозвалась эхом!', stars, once:['paidEcho',n,'Эхо'], gained:S.gems-start,
       line:`Точных хлопков: ${k} из 10 (${lvlName})${wrong?`, лишних: ${wrong}`:''}`, again:['echo',n], next: level<3 ? null : ['crystal',n,'Дальше: Кристалл']});
   }
   function frame(){
@@ -1850,9 +1850,12 @@ function treasury(){
 const plural = (n, one, few, many) => { const a = n%10, b = n%100; return a===1 && b!==11 ? one : a>=2 && a<=4 && (b<12 || b>14) ? few : many; };
 
 /* ---------- окно награды: кристаллы по звёздам ---------- */
-function reward({title, stars, line, again, next, crystalOf, crystal=1}){
+function reward({title, stars, line, again, next, crystalOf, crystal=1, once}){
   // три звезды — 3 кристалла, две — 2, одна — ничего (Гонку и Броски ещё нужно пройти до конца)
   crystal = crystal && stars>=2 ? stars : 0;
+  // в Тропе и Эхо кристаллы у каждого гнома один раз за всё время: 2 звезды, потом доплата до трёх
+  const earned = crystal; let paidAll = false;
+  if(once){ const p = tp(once[1]), had = p[once[0]]||0; crystal = Math.max(0, earned-had); p[once[0]] = Math.max(had, earned); paidAll = earned>0 && !crystal || !earned && had>=3; }
   if(crystal) S.kr += crystal;
   save();
   const canLab = S.kr>=LAB_COST && nextItem() && TABLES.some(T=>!S.made[T.n]);
@@ -1862,7 +1865,7 @@ function reward({title, stars, line, again, next, crystalOf, crystal=1}){
     <h2 style="color:var(--lamp)">${title}</h2>
     ${starsHTML(stars)}
     ${crystalOf ? `<div class="crystals">${crystalSVG(crystalOf)}</div>` : ''}
-    ${crystal ? `<div class="gain">${gemIco()}+${crystal} ${plural(crystal,'кристалл','кристалла','кристаллов')}</div>` : (stars!==undefined ? `<p class="muted">Кристаллы гном дарит за две звезды (2 кристалла) и за три звезды (3 кристалла). Попробуй ещё раз!</p>` : '')}
+    ${crystal ? `<div class="gain">${gemIco()}+${crystal} ${plural(crystal,'кристалл','кристалла','кристаллов')}</div>${crystal<earned ? `<p class="muted">Это доплата до трёх звёзд: остальное ${tableOf(once[1]).name} уже подарил раньше.</p>` : once ? `<p class="muted">${earned<3 ? `За ${once[2]} на три звезды ${tableOf(once[1]).name} подарит ещё 1 кристалл, а потом это тренировка.` : `За ${once[2]} гном дарит кристаллы один раз. Дальше это тренировка.`}</p>` : ''}` : paidAll ? `<p class="muted">За ${once[2]} ${tableOf(once[1]).name} уже подарил кристаллы. Играть можно сколько хочешь, это тренировка.</p>` : (stars!==undefined ? `<p class="muted">Кристаллы гном дарит за две звезды (2 кристалла) и за три звезды (3 кристалла). Попробуй ещё раз!</p>` : '')}
     ${line ? `<p>${line}</p>` : ''}
     ${canLab ? `<p class="perk">Кристаллов хватает, чтобы создать в Лаборатории «${nextItem().name}».</p>` : ''}
     <div class="row">
