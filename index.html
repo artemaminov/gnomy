@@ -219,7 +219,7 @@ h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:va
 /* пещера на главной */
 .cave-wrap{position:relative}
 #cave{width:100%; aspect-ratio:200/120; display:block; border:3px solid var(--rock-2); background:#0e0a08; image-rendering:pixelated; touch-action:manipulation; cursor:pointer}
-.cave-tip{position:absolute; left:50%; bottom:12px; transform:translateX(-50%); background:rgba(14,10,8,.85); border:2px solid var(--rock-2); padding:6px 12px; font-size:15px; color:var(--lamp); text-align:center; width:max-content; max-width:90%}
+.cave-tip{margin:0; font-size:16px; color:var(--lamp); text-align:center}
 .cave-actions{justify-content:space-between; align-items:center}
 .item .prev{height:72px; width:auto; max-width:100%; image-rendering:pixelated; object-fit:contain}
 .prev.big{height:120px; image-rendering:pixelated}
@@ -245,8 +245,25 @@ h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:va
 .item.next{border-color:var(--lamp)}
 .item.locked .prev{filter:brightness(0) opacity(.45)}
 @media (max-width:640px){
-  .shaft canvas{max-width:min(300px, calc(46vh * 0.571))}
-  .crys-wrap,.mine-wrap{grid-template-columns:minmax(0,1fr)}
+  .bar{flex-wrap:nowrap; gap:8px}
+  .bar .grow h2{font-size:18px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .bar h1{font-size:24px; white-space:nowrap}
+  .back{padding:8px 10px; font-size:15px}
+  .snd{padding:4px 6px; font-size:12px}
+  .gems{font-size:20px; padding:4px 10px 4px 8px}
+  .gems .px{width:22px}
+  #app{gap:12px}
+  /* Забой: шахта и пример в одной строке, клавиатура сразу под ними */
+  .mine-wrap{grid-template-columns:minmax(0,0.8fr) minmax(0,1fr); gap:10px}
+  .mine-side{display:contents}
+  .shaft{grid-column:1; grid-row:1}
+  .mine-side .qbox{grid-column:2; grid-row:1; padding:8px; gap:6px; justify-content:center}
+  .mine-side .qbox .q{font-size:34px}
+  .mine-side .qbox .say{font-size:14px}
+  .mine-side .keys, #hintb, #arr, .mine-side .bip{grid-column:1 / -1}
+  .mine-side .keys{gap:6px}
+  .shaft canvas{max-width:100%}
+  .crys-wrap{grid-template-columns:minmax(0,1fr)}
   .key{min-height:58px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important; transition:none!important}}
@@ -982,7 +999,7 @@ function drawFlash(ctx, W, flash, yBig, ySmall){
 }
 function race(arg){
   const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
-  const WAVES = big ? 25 : 20, W = 360, H = 560, LX = [69,180,291], CY = 478, VMIN = 55, VMAX = 230;
+  const WAVES = big ? 16 : 12, W = 360, H = 560, LX = [69,180,291], CY = 478, VMIN = 55, VMAX = 160;
   const pool = (big ? HARD : [t]).flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k})));
   const maxHearts = 3;
   let lane = 1, cx = LX[1], v = big ? 75 : 65, scroll = 0, wave = null, last = null, done = 0, right = 0, crashes = 0, clock = 0;
@@ -1028,7 +1045,7 @@ function race(arg){
       gemsFly.push({sx:x, sy:y, t:0, kind: mult>1 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan'});
       chime(Math.min(9, combo)); if(mult>was) tone(1568,0.4,0.12,'sine',0.1);
       flash = {text: mult>was ? `Серия! Очки ×${mult}` : `+${g}`, color:'#5fd3c6', t:0.7, small: mult===was};
-      v = Math.min(VMAX, v*1.07); pause = 0.35;
+      v = Math.min(VMAX, v*1.05); pause = 0.35;
     } else {
       wave.hit = 'bad'; f.bad++; crashes++; combo = 0; mult = 1;
       spawnParts(parts, x, y, 26, RAMP.stone, {speed:320, size:2*P, g:900, life:.9});
@@ -1336,7 +1353,9 @@ function caveBackdrop(){
     x.fillStyle = '#231b15'; x.fillRect(rx,ry,rw,rh); x.fillStyle = '#2e241c'; x.fillRect(rx,ry,rw,1); x.fillStyle = '#120d0a'; x.fillRect(rx,ry+rh,rw,1);
   }
   for(let k=0;k<5;k++){
-    const gx = 6+(r()*108)|0, gy = 60+(r()*105)|0, pal = GEMS[['amethyst','cyan','amethyst','emerald','cyan'][k]];
+    let gx = 6+(r()*108)|0; const gy = 60+(r()*105)|0;
+    if(gy>120 && Math.abs(gx-60)<22) gx = gx<60 ? 16 : 104;   // не рядом с гномом: иначе кристалл сливается с киркой
+    const pal = GEMS[['amethyst','cyan','amethyst','emerald','cyan'][k]];
     for(let s=-1;s<=1;s++){
       const hh = 4+(r()*5)|0 + (s===0?3:0), sx = gx+s*3;
       x.fillStyle = pal.D; x.fillRect(sx, gy-hh, 2, hh); x.fillStyle = pal.l; x.fillRect(sx, gy-hh, 1, hh);
@@ -1743,8 +1762,8 @@ function home(){
   const nx = nextItem();
   app.innerHTML = `${bar()}
     <div class="cave-wrap"><canvas id="cave" aria-label="Пещера гномов. Нажми на гнома, чтобы выбрать его"></canvas>
-      ${S.own.length ? '' : '<div class="cave-tip">В пещере темно. Собери кристаллы и создай в Лаборатории костёр.</div>'}
     </div>
+    ${S.own.length ? '' : '<p class="cave-tip">В пещере темно. Собери кристаллы и создай в Лаборатории костёр.</p>'}
     <div class="row cave-actions">
       <span class="muted">Нажми на гнома, чтобы выбрать его</span>
       <button class="pbtn alt" data-go="treasury">Сокровищница · ${S.own.length} из ${CAVE_ITEMS.length}</button>
