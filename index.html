@@ -268,6 +268,13 @@ h1,h2,h3,.stage b,.pbtn,.back,.snd,.master,.combo,.bip,.newitem b{font-family:va
   .key{min-height:58px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important; transition:none!important}}
+.item-icon{display:block;font-size:32px}
+.item .pbtn{margin-top:10px}
+.pbtn:disabled{opacity:.55;cursor:default}
+.cave-decor{display:flex;flex-wrap:wrap;gap:14px}
+.card-head{position:relative}
+.snack{position:absolute;top:24px;left:28px;font-size:25px;pointer-events:none;animation:snack-bite .65s both}
+@keyframes snack-bite{0%{transform:translate(22px,18px)}55%{opacity:1}100%{transform:translate(2px,-10px) scale(.25);opacity:0}}
 </style>
 
 <div id="app"></div>
@@ -301,6 +308,7 @@ const PAL = {
   crown:{Y:'#f7c548',R:'#e3644d',C:'#5fd3c6'},
 };
 const gnome = (t)=>px(ART.gnome, gnomePal(t));
+const gnomeKey = t => t.n + (owns(t.n,'coat') ? '-coat' : '');
 const gemIco = ()=>px(ART.gem,PAL.gem);
 const starsHTML = (k)=>`<span class="stars">${[0,1,2].map(i=>px(ART.star, i<k?PAL.star:PAL.starOff)).join('')}</span>`;
 
@@ -323,8 +331,11 @@ function sprCanvas(rows, pal, key){
   return c;
 }
 function blit(ctx, c, x, y, s=P){ ctx.drawImage(c, snap(x), snap(y), c.width*s, c.height*s); }
-const gnomePal = t => ({o:'#1a120c', R:t.cap, r:shade(t.cap,-0.35), h:shade(t.cap,0.4), S:'#f2c9a0', s:'#d9a07a', E:'#1a120c', N:'#e8907a',
-  W:'#f1ebe0', w:'#c9bfae', C:t.coat, c:shade(t.coat,-0.35), B:'#4a3020', G:'#f7c548', K:'#3b2a1e', k:'#6a4c34'});
+const gnomePal = t => {
+  if(owns(t.n,'coat')) t = {...t, coat:'#b46b8e'};
+  return {o:'#1a120c', R:t.cap, r:shade(t.cap,-0.35), h:shade(t.cap,0.4), S:'#f2c9a0', s:'#d9a07a', E:'#1a120c', N:'#e8907a',
+  W:'#f1ebe0', w:'#c9bfae', C:t.coat, c:shade(t.coat,-0.35), B:'#4a3020', G:'#f7c548', K:'#3b2a1e', k:'#6a4c34'};
+};
 const GEMS = {
   cyan:    PAL.gem,
   ruby:    {o:'#3a0e0c',W:'#ffffff',L:'#ffc2b5',l:'#ff8a73',M:'#e3644d',D:'#a8322a',d:'#6e1d1a'},
@@ -483,14 +494,14 @@ const tableOf = n => TABLES.find(t=>t.n===n);
 
 /* ---------- сохранение (только на этом планшете) ---------- */
 const KEY = 'shahta-gnomov-v1';
-function fresh(){ return {gems:0, kr:0, econ:4, own:[], made:{}, sel:7, t:{}, facts:{}, crystals:[], bigBest:0, sound:true}; }
+function fresh(){ return {gems:0, kr:0, econ:4, wallets:{}, purchases:{}, pendingRound:false, own:[], made:{}, sel:7, t:{}, facts:{}, crystals:[], bigBest:0, sound:true}; }
 function load(){
   try{
     const d = JSON.parse(localStorage.getItem(KEY));
     if(d && d.t){
       const m = Object.assign(fresh(), d);
       // новая экономика: кристаллы считаются с нуля (старые самоцветы не переносятся)
-      if(d.econ!==2 && d.econ!==3) m.kr = 0;
+      if(![2,3,4].includes(d.econ)) m.kr = 0;
       // Лаборатория: вещи пещеры теперь создаются гномами, старые покупки убираются
       if(d.econ!==3 && d.econ!==4){ m.own = []; m.made = {}; }
       // у каждого гнома теперь своя вещь: Один — костёр, …, Девятко — трон
@@ -502,6 +513,40 @@ function load(){
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 let S = load();
+const SHOP = [
+  {id:'ice', name:'Мороженое', icon:'🍦', price:5, text:'Гном ест мороженое в пещере.'},
+  {id:'cake', name:'Пирожное', icon:'🧁', price:5, text:'Гном угощается пирожным в пещере.'},
+  {id:'coat', name:'Новая куртка', icon:'🧥', price:8, text:'Меняет цвет куртки гнома.'},
+  {id:'shovel', name:'Лопата', icon:'⛏', price:10, text:'Пауки спускаются на две секунды дольше.'},
+  {id:'hammer', name:'Отбойный молоток', icon:'🔨', price:15, text:'Даёт дополнительную каску в Гонке.'},
+];
+const wallet = n => S.wallets[n] || 0;
+const owns = (n, item) => (S.purchases[n] || []).includes(item);
+const hasTool = (n, item) => n === 'big' ? HARD.some(t => owns(t.n,item)) : owns(n,item);
+const grade = errors => errors === 0 ? 5 : errors <= 2 ? 4 : errors <= 4 ? 3 : 0;
+function startRound(){
+  S.pendingRound = true;
+  save();
+}
+function abandonRound(){
+  if(!S.pendingRound) return;
+  S.kr = Math.max(0, S.kr-2);
+  S.pendingRound = false;
+  save();
+}
+function awardGems(n, errors){
+  const gems = grade(errors);
+  const ids = n==='big' ? HARD.map(t=>t.n) : [n];
+  ids.forEach(id=>{ S.wallets[id] = wallet(id)+gems; });
+  S.pendingRound = false;
+  return gems;
+}
+abandonRound();
+window.addEventListener('pagehide', e=>{
+  if(!S.pendingRound) return;
+  abandonRound();
+  if(e.persisted) go('home');
+});
 const tp = n => (S.t[n] ||= {rhythm:0, crystal:0, mine:0});
 const T0 = Date.now(); let ritualShown = false;
 
@@ -529,6 +574,12 @@ const app = $('#app');
 const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]];} return a; };
 const fk = (a,b) => Math.min(a,b)+'x'+Math.max(a,b);
 let cleanup = [];
+let screenId = 0;
+const screenTimers = new Set();
+function after(ms, callback){
+  const id = setTimeout(()=>{ screenTimers.delete(id); callback(); }, ms);
+  screenTimers.add(id);
+}
 // внутри игр — только искры; кристаллы выдаются один раз в конце игры (см. reward)
 function addGems(k, el){ if(el) fx.burst(el, 8+k*3); }
 function bar(title){
@@ -543,8 +594,15 @@ function bipHTML(){ return own('angel') ? `<div class="bip" id="bip">${px(ANGEL,
 function bipSay(t){ const b=$('#bip'); if(!b) return; $('#bipsay').textContent=t; b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop'); }
 
 /* ---------- навигация ---------- */
-const SCREENS = {home, rhythm, echo, crystal, mine, race, throw: throwGame, treasury};
+const SCREENS = {home, rhythm, echo, crystal, mine, race, throw: throwGame, treasury, shop};
 function go(name, arg){
+  if(S.pendingRound){
+    if(!window.confirm('Выйти из раунда? Самоцветы за него сгорят, с общего счёта спишется до 2 кристаллов.')) return;
+    abandonRound();
+  }
+  screenId++;
+  screenTimers.forEach(id=>clearTimeout(id));
+  screenTimers.clear();
   cleanup.forEach(f=>f()); cleanup=[];
   $('.veil')?.remove();
   SCREENS[name](arg); window.scrollTo(0,0);
@@ -552,13 +610,27 @@ function go(name, arg){
 document.addEventListener('click', e=>{
   const g = e.target.closest('[data-go]');
   if(g){ const a=g.dataset.arg; go(g.dataset.go, a===undefined?undefined:(isNaN(a)?a:+a)); return; }
+  const snack = e.target.closest('[data-treat]');
+  if(snack){
+    const sprite = snack.closest('.card-head').querySelector('.px');
+    const bite = document.createElement('span');
+    bite.className = 'snack';
+    bite.textContent = snack.textContent;
+    snack.closest('.card-head').append(bite);
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      sprite.animate([{transform:'rotate(0)'},{transform:'translateY(-8px) rotate(-12deg)'},{transform:'rotate(0)'}], 500);
+    }
+    after(650, ()=>bite.remove());
+    chime(snack.dataset.treat === 'ice' ? 4 : 7);
+  }
   if(e.target.closest('[data-act="sound"]')){ S.sound=!S.sound; save(); e.target.closest('button').textContent = S.sound?'звук: вкл':'звук: выкл'; if(S.sound) chime(4); }
 });
 
 /* ---------- 1. Тропа: ритм счёта ---------- */
 function rhythm(n){
+  startRound();
   const t = tableOf(n), total = n*10;
-  let k = 1, misses = 0, allMiss = 0, playing = null; const start = S.gems;
+  let k = 1, misses = 0, allMiss = 0, playing = null;
   app.innerHTML = `${bar('Тропа гнома '+t.name)}
     <div class="intro">${gnome(t)}<p>${t.name} идёт по камням и бьёт киркой на каждом ${n}-м шаге. Сначала послушай ритм, потом найди все самоцветы по порядку.</p></div>
     <div class="row"><button class="pbtn alt" id="listen">Послушать ритм</button></div>
@@ -598,7 +670,7 @@ function rhythm(n){
   function finish(){
     const stars = allMiss===0?3:allMiss<=3?2:1;
     tp(n).rhythm = Math.max(tp(n).rhythm, stars); addGems(5); save();
-    setTimeout(()=>reward({title:'Тропа пройдена!', stars, once:['paidRhythm',n,'Тропу'], gained:S.gems-start, again:['rhythm',n], next:['crystal',n,'Дальше: Кристалл']}), 700);
+    reward({title:'Тропа пройдена!', stars, errors:allMiss, once:['paidRhythm',n,'Тропу'], again:['rhythm',n], next:['crystal',n,'Дальше: Кристалл'], show:render=>after(700,render)});
   }
 }
 
@@ -628,7 +700,8 @@ function crystal(n){
     const cb = $('#create'); if(cb) cb.onclick = ()=>{ if(S.kr>=LAB_COST) board(true); };
   }
   function board(create){
-    let k = 1, misses = 0, allMiss = 0, last = 0, spent = 0, dead = false;
+    startRound();
+    let k = 1, misses = 0, allMiss = 0, last = 0, spent = 0, dead = false, revealing = false;
     app.innerHTML = `${bar('Лаборатория '+who)}
       <div class="crys-wrap">
         <svg viewBox="0 0 300 300" id="cs">
@@ -652,7 +725,7 @@ function crystal(n){
     function ask(){ $('#q').innerHTML = `${n} × ${k} = ?<small>нажми последнюю цифру ответа</small>`; say(''); }
     $('#hintb').onclick = ()=> say(k===1 ? `${n} × 1 — это просто ${n}` : `${n*(k-1)} + ${n} = ?`);
     $('#cs').addEventListener('click', e=>{
-      const g = e.target.closest('.dot'); if(!g || k>10 || dead) return;
+      const g = e.target.closest('.dot'); if(!g || k>10 || dead || revealing) return;
       const d = +g.dataset.d, ans = n*k;
       if(d===ans%10){
         if(create){ S.kr--; spent++; save(); $('#gemc b').textContent = S.kr; $('#spent').textContent = spent; fx.burst($('#gemc'), 10, RAMP.gem, {speed:160}); }
@@ -664,12 +737,13 @@ function crystal(n){
         $('#q').innerHTML = `${n} × ${k} = ${ans}`;
         last = d; misses = 0; k++;
         if(k>10) return finish();
-        setTimeout(()=>{ ask(); if(n%2===0 && k===6) say('Смотри: нить пошла по второму кругу!'); if(n===5 && k===3) say('Смотри: нить ходит туда и обратно!'); }, 650);
+        revealing = true;
+        after(650, ()=>{ revealing = false; ask(); if(n%2===0 && k===6) say('Смотри: нить пошла по второму кругу!'); if(n===5 && k===3) say('Смотри: нить ходит туда и обратно!'); });
       } else {
         g.classList.remove('no'); void g.offsetWidth; g.classList.add('no'); thud(); misses++; allMiss++;
         if(create){
           // ошибка в создании: всё потраченное сгорает
-          dead = true; tone(110,0.5,0.18,'sawtooth');
+          dead = true; S.pendingRound = false; save(); tone(110,0.5,0.18,'sawtooth');
           fx.burst($('#gemc'), 24, RAMP.fire, {speed:220});
           say(`${n} × ${k} = ${ans}, последняя цифра ${ans%10}.`); dot(ans%10).classList.add('hint');
           const again = S.kr>=LAB_COST;
@@ -692,23 +766,26 @@ function crystal(n){
       tp(n).crystal = Math.max(tp(n).crystal||0, allMiss===0?3:allMiss<=3?2:1);
       let it = null;
       if(create && !S.made[n]){ it = itemFor(n); S.own.push(it.key); S.made[n] = it.key; }
+      const gems = awardGems(n,allMiss);
       save();
-      setTimeout(()=>{
+      after(1400, ()=>{
         const v = document.createElement('div'); v.className = 'veil';
         v.innerHTML = it ? `<div class="modal" role="dialog" aria-modal="true">
             <h2 style="color:var(--lamp)">${t.name} создал: ${it.name}!</h2>
             <div class="crystals">${crystalSVG(n)}</div>
+            <p>Ошибок: ${allMiss} · Самоцветы: +${gems}</p>
             <img class="prev big" src="${itemPreview(it)}" alt="">
             <p>${it.text}</p>${it.perk ? `<p class="perk">${it.perk}</p>` : ''}
             <div class="row"><button class="pbtn" id="see">Посмотреть в пещере</button></div></div>`
           : `<div class="modal" role="dialog" aria-modal="true">
             <h2 style="color:var(--lamp)">Кристалл начерчен!</h2>
             <div class="crystals">${crystalSVG(n)}</div>
+            <p>Ошибок: ${allMiss} · Самоцветы: +${gems}</p>
             <p class="muted">Это была тренировка. Новые вещи появляются, когда создаёшь за кристаллы.</p>
             <div class="row"><button class="pbtn" data-go="crystal" data-arg="${n}">В лабораторию</button><button class="pbtn alt" data-go="home">В пещеру</button></div></div>`;
         document.body.appendChild(v);
-        if(it){ [0,250,500].forEach((d,i)=>setTimeout(()=>fx.burst(v.querySelector('.prev'), 30, i===1 ? RAMP.fire : RAMP.gold, {speed:380}), d)); $('#see').onclick = ()=>{ home.flash = it.key; go('home'); }; }
-      }, 1400);
+        if(it){ [0,250,500].forEach((d,i)=>after(d,()=>fx.burst(v.querySelector('.prev'), 30, i===1 ? RAMP.fire : RAMP.gold, {speed:380}))); $('#see').onclick = ()=>{ home.flash = it.key; go('home'); }; }
+      });
     }
   }
   intro();
@@ -736,7 +813,7 @@ function makeShaft(cv, t, rows){
   const layerOf = r => LAYERS[Math.min(3, Math.floor(r/rows*4))];
   const tex = Array.from({length:rows+3}, (_,r)=>Array.from({length:5},(_,c)=>makeStone(16,16, 500+r*5+c, r<rows ? layerOf(r) : LAYERS[3], Math.random()<.35)));
   const air = makeRock(80, 60, 5), hole = makeRock(16, 16, 8);
-  const gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+t.n), pickS = sprCanvas(ART.pick, PAL.pick, 'pick');
+  const gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+gnomeKey(t)), pickS = sprCanvas(ART.pick, PAL.pick, 'pick');
   let gxN = W/2, userT = 0, manual = 0, drag = null;
   let row = 0, gy = TOP, camY = 0, clock = 0, parts = [], queue = [], anim = null, cracks = {}, glowK = 0, finaleCb = null, over = false, raf = 0, lastT = 0;
   const broken = new Set();
@@ -854,6 +931,7 @@ function makeShaft(cv, t, rows){
   };
 }
 function mine(arg){
+  startRound();
   const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
   let qs;
   if(big){
@@ -866,7 +944,7 @@ function mine(arg){
     qs = base.concat(extra);
   }
   qs = qs.map(q=>({...q, ans:q.n*q.k, flip:Math.random()<0.4}));
-  let i = 0, typed = '', tries = 0, firstOk = 0, combo = 0, busy = false, arrOld = false; const start = S.gems;
+  let errors = 0, i = 0, typed = '', tries = 0, firstOk = 0, combo = 0, busy = false, arrOld = false;
   app.innerHTML = `${bar(big ? 'Большая шахта' : 'Забой гнома '+t.name)}
     <div class="mine-wrap">
       <div class="shaft"><canvas id="shaft" aria-label="Шахта: гном копает вниз к кристаллу"></canvas></div>
@@ -915,7 +993,7 @@ function mine(arg){
         shaft.dig(true, combo>=3 ? GEM_KINDS[(Math.random()*GEM_KINDS.length)|0] : 'cyan');
         addGems(3);
         say(['Точно! Камень раскололся.','Верно! Глубже!','Отличный удар!','Так держать!'][Math.random()*4|0]); bipSay('Бип!');
-        if(combo%3===0){ setTimeout(()=>{ addGems(2, $('#combo')); $('#combo').textContent = `Серия ${combo}!`; tone(1568,0.5,0.12); }, 300); }
+        if(combo%3===0){ after(300, ()=>{ addGems(2, $('#combo')); $('#combo').textContent = `Серия ${combo}!`; tone(1568,0.5,0.12); }); }
         else $('#combo').textContent = combo>1 ? `Серия: ${combo}` : '';
       } else {
         chime(2); shaft.dig(false);
@@ -923,33 +1001,31 @@ function mine(arg){
         $('#combo').textContent = '';
       }
       save(); showArr(q, true);
-      setTimeout(()=>{ i++; typed=''; tries=0; busy=false; arrOld = true; if(i<qs.length) draw(); else finish(); }, 1100);
+      if(i===qs.length-1){ finish(); }
+      else after(1100, ()=>{ i++; typed=''; tries=0; busy=false; arrOld = true; draw(); });
     } else {
-      tries++; combo = 0; $('#combo').textContent=''; thud(); shaft.clang();
+      errors++; tries++; combo = 0; $('#combo').textContent=''; thud(); shaft.clang();
       if(tries===1){ f.bad++; save(); }
       $('#ans').classList.add('wrong');
       if(tries===1){ say('Дзынь! Кирка отскочила. Посмотри на ряды и прибавь ещё один.'); showArr(q, false); }
       else { say(`Ответ: ${q.ans}. Набери его сам, так он запомнится.`); showArr(q, true); }
-      typed = ''; setTimeout(()=>{ const a=$('#ans'); if(a){ a.textContent='?'; a.classList.remove('wrong'); } }, 700);
+      typed = ''; after(700, ()=>{ const a=$('#ans'); if(a && !typed){ a.textContent='?'; a.classList.remove('wrong'); } });
     }
   }
   $('#keys').onclick = e=>{ const b = e.target.closest('.key'); if(b) press(b.dataset.k); };
-  $('#hintb').onclick = ()=>{ if(i<qs.length){ showArr(qs[i], false); if(tries===0) tries = 1; say('С подсказкой самоцвет поменьше, но тоже твой.'); } };
+  $('#hintb').onclick = ()=>{ if(i<qs.length){ showArr(qs[i], false); if(tries===0) tries = 1; say('Ряды подскажут, сколько получится.'); } };
   const onKey = e=>{ if(/^[0-9]$/.test(e.key)) press(e.key); else if(e.key==='Backspace') press('del'); else if(e.key==='Enter') press('ok'); };
   document.addEventListener('keydown', onKey); cleanup.push(()=>document.removeEventListener('keydown', onKey));
   draw();
   function finish(){
     const ratio = firstOk/qs.length, stars = ratio>=0.9?3:ratio>=0.7?2:1;
     say('Гном добрался до кристалла!');
-    shaft.finale(()=>{
-      addGems(stars*5); fanfare();
-      let master = false;
-      if(big) S.bigBest = Math.max(S.bigBest, stars);
-      else { master = stars===3 && tp(arg).mine<3; tp(arg).mine = Math.max(tp(arg).mine, stars); }
-      save();
-      reward({title: master ? `Гном ${t.name} снимает шапку: ты мастер ×${arg}!` : 'Кристалл добыт!', stars, gained:S.gems-start,
-        line:`С первого раза: ${firstOk} из ${qs.length}`, again:['mine',arg]});
-    });
+    let master = false;
+    if(big) S.bigBest = Math.max(S.bigBest, stars);
+    else { master = stars===3 && tp(arg).mine<3; tp(arg).mine = Math.max(tp(arg).mine, stars); }
+    reward({title: master ? `Гном ${t.name} снимает шапку: ты мастер ×${arg}!` : 'Кристалл добыт!',
+      stars, errors, line:`С первого раза: ${firstOk} из ${qs.length}`, again:['mine',arg],
+      show:render=>shaft.finale(()=>{ fanfare(); render(); })});
   }
 }
 
@@ -1003,14 +1079,14 @@ function race(arg){
   const big = arg==='big', t = big ? HARD[(Math.random()*HARD.length)|0] : tableOf(arg);
   const WAVES = big ? 16 : 12, W = 360, H = 560, LX = [69,180,291], CY = 478, VMIN = 55, VMAX = 160;
   const pool = (big ? HARD : [t]).flatMap(T=>[2,3,4,5,6,7,8,9].map(k=>({n:T.n,k})));
-  const maxHearts = 3;
+  const maxHearts = 3 + (hasTool(arg,'hammer') ? 1 : 0);
   let lane = 1, cx = LX[1], v = big ? 75 : 65, scroll = 0, wave = null, last = null, done = 0, right = 0, crashes = 0, clock = 0;
   let score = 0, hearts = maxHearts, shield = own('angel'), combo = 0, mult = 1, pause = 0, shake = 0, red = 0, flash = null;
   let parts = [], gemsFly = [], motes = [], running = false, over = false, raf = 0, lastT = 0, boost = false, swipe = null;
   const stones = [0,1,2,3].map(i=>makeStone(28,18,40+i,STONE_PAL,true,true)), crys = makeStone(28,18,9,CRYS_PAL,false,true), bad = makeStone(28,18,12,BAD_PAL,false,true);
   const floorT = makeRock(120, 40, 21), wallT = makeStone(10, 40, 33, {base:'#2b231c', lo:'#241d17', hi:'#352b22', hi2:'#40342a', dk:'#15100c', o:'#120d0a'}, true);
   const cartPal = {o:'#1a120c', K:'#8b7b6b', k:'#5a4e44', h:'#b5a593', B:'#9c5b34', b:'#6e3d22', n:'#d8c8b0', C:'#5fd3c6', R:'#e3644d', Y:'#f7c548', W:'#ffffff', D:'#3a3330', d:'#8b7b6b'};
-  const cartS = sprCanvas(CART, cartPal, 'cart-big'), headS = sprCanvas(ART.gnome.slice(0,15), gnomePal(t), 'head'+t.n), botS = angelSpr();
+  const cartS = sprCanvas(CART, cartPal, 'cart-big'), headS = sprCanvas(ART.gnome.slice(0,15), gnomePal(t), 'head'+gnomeKey(t)), botS = angelSpr();
   for(let i=0;i<24;i++) motes.push({x:30+Math.random()*300, y:Math.random()*H, ph:Math.random()*6});
 
   app.innerHTML = `${bar(big ? 'Гонка по Большой шахте' : 'Гонка с гномом '+t.name)}
@@ -1054,7 +1130,7 @@ function race(arg){
       spawnParts(parts, x, y+20, 14, RAMP.dust, {speed:90, g:-30, life:1.1, size:2*P});
       if(shield){ shield = false; spawnParts(parts, cx+50, CY-30, 20, RAMP.gem, {speed:200}); flash = {text:'Ангел защитил!', sub:`${q.n} × ${q.k} = ${q.ans}`, color:'#5ff0ff', t:1.6}; tone(880,0.3,0.12,'square'); }
       else {
-        hearts--; shake = 0.45; red = 0.35; thud(); setTimeout(thud,90);
+        hearts--; shake = 0.45; red = 0.35; thud(); after(90,thud);
         spawnParts(parts, 19+hearts*24, 19, 12, RAMP.hurt, {speed:120, life:.6});
         flash = {text:`${q.flip ? q.k+' × '+q.n : q.n+' × '+q.k} = ${q.ans}`, sub:'Запомни и едем дальше', color:'#f7c548', t:1.6};
       }
@@ -1154,7 +1230,7 @@ function race(arg){
     const stars = finished && crashes===0 ? 3 : finished ? 2 : 1;
     if(big) S.bigRace = Math.max(S.bigRace||0, stars); else tp(arg).race = Math.max(tp(arg).race||0, stars);
     save(); draw();
-    reward({title: finished ? 'Станция! Вагонетка доехала' : 'Каски кончились', stars, crystal: finished ? 1 : 0,
+    reward({title: finished ? 'Станция! Вагонетка доехала' : 'Каски кончились', stars, errors:crashes, crystal: finished ? 1 : 0,
       line:`Очки: ${score}. Поймано верных ответов: ${right} из ${done}`, again:['race',arg]});
   }
   function setLane(l){ if(!running) return; lane = Math.max(0, Math.min(2, l)); tick(); }
@@ -1165,7 +1241,7 @@ function race(arg){
   const onKey = e=>{ if(e.key==='ArrowLeft'){ setLane(lane-1); e.preventDefault(); } if(e.key==='ArrowRight'){ setLane(lane+1); e.preventDefault(); } if(e.key==='ArrowUp'){ goFast(); e.preventDefault(); } };
   document.addEventListener('keydown', onKey);
   cleanup.push(()=>{ over = true; cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); });
-  $('#gobtn').onclick = ()=>{ $('#rs').hidden = true; running = true; spawn(); chime(0); chime(4); };
+  $('#gobtn').onclick = ()=>{ startRound(); $('#rs').hidden = true; running = true; spawn(); chime(0); chime(4); };
   document.fonts?.ready.then(()=>{ if(!over) draw(); });
   raf = requestAnimationFrame(frame);
 }
@@ -1182,7 +1258,7 @@ function drumAt(at, vol=0.45){
   }catch(e){}
 }
 function echo(n){
-  const t = tableOf(n), total = n*10, start = S.gems;
+  const t = tableOf(n), total = n*10;
   let level = 1, mic = null, running = false, over = false, raf = 0;
   let t0 = 0, interval = 0.85, lat = 0, scheduled = 0, curIdx = -2, combo = 0, mult = 1, wrong = 0, lastWrong = -99, lastHit = -99;
   const hits = new Set(), missed = new Set();
@@ -1216,15 +1292,20 @@ function echo(n){
 
   // микрофон: хлопок — это резкий всплеск высоких частот, барабан низкий и через фильтр не проходит
   $('#micb').onclick = async ()=>{
+    const screen = screenId;
+    $('#micb').disabled = true;
     try{
       const ac = getAC(); await ac.resume();
       const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+      if(screen !== screenId){ stream.getTracks().forEach(track=>track.stop()); return; }
       const src = ac.createMediaStreamSource(stream), hp = ac.createBiquadFilter(), an = ac.createAnalyser();
       hp.type = 'highpass'; hp.frequency.value = 1800; an.fftSize = 512; src.connect(hp).connect(an);
       mic = {stream, an, buf:new Float32Array(512), floor:0.01, last:0, mute:0};
       $('#micst').textContent = 'Микрофон слушает. Хлопни в ладоши: полоска должна прыгнуть, а кнопка мигнуть.';
       $('#meter').hidden = false; $('#micb').hidden = true;
     }catch(e){
+      if(screen !== screenId) return;
+      $('#micb').disabled = false;
       $('#micst').textContent = 'Здесь микрофон недоступен, хлопай по большой кнопке. Настоящие хлопки заработают, когда игра будет на своём сайте.';
     }
   };
@@ -1273,7 +1354,11 @@ function echo(n){
   document.addEventListener('keydown', onKey);
 
   $('#startb').onclick = async ()=>{
+    const screen = screenId;
+    $('#startb').disabled = true;
     const ac = getAC(); await ac.resume();
+    if(screen !== screenId) return;
+    startRound();
     interval = [0, 0.85, 0.7, 0.75][level];
     lat = ac.outputLatency || ac.baseLatency || 0;
     $('#grid').innerHTML = Array.from({length:total},(_,i)=>`<button class="blk" tabindex="-1" data-i="${i}" style="background-image:${numTile(level===3?'':i+1)}"></button>`).join('');
@@ -1289,7 +1374,7 @@ function echo(n){
     const k = hits.size, stars = k===10 && wrong<=1 ? 3 : k>=7 && wrong<=4 ? 2 : 1;
     tp(n).echo = Math.max(tp(n).echo||0, stars); save();
     const lvlName = ['','с подсказкой','сам','в уме'][level];
-    reward({title:'Пещера отозвалась эхом!', stars, once:['paidEcho',n,'Эхо'], gained:S.gems-start,
+    reward({title:'Пещера отозвалась эхом!', stars, once:['paidEcho',n,'Эхо'], errors:wrong + 10 - k,
       line:`Точных хлопков: ${k} из 10 (${lvlName})${wrong?`, лишних: ${wrong}`:''}`, again:['echo',n], next: level<3 ? null : ['crystal',n,'Дальше: Кристалл']});
   }
   function frame(){
@@ -1384,7 +1469,7 @@ function throwGame(arg){
   let score = 0, hearts = maxHearts, shield = own('angel'), combo = 0, mult = 1, right = 0, done = 0, slips = 0;
   let wave = null, last = null, axe = null, aim = null, parts = [], flyers = [], gemsFly = [], drips = [], flash = null, pause = 0, shake = 0, red = 0, hurt = 0;
   let running = false, over = false, raf = 0, lastT = 0, clock = 0, dripT = 1;
-  const bg = caveBackdrop(), gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+t.n), pickS = sprCanvas(ART.pick, PAL.pick, 'pick'), botS = angelSpr();
+  const bg = caveBackdrop(), gnomeS = sprCanvas(ART.gnome, gnomePal(t), 'gnome'+gnomeKey(t)), pickS = sprCanvas(ART.pick, PAL.pick, 'pick'), botS = angelSpr();
   const stones = [0,1,2,3].map(i=>makeStone(24,15,60+i,STONE_PAL,true,true)), crys = makeStone(24,15,8,CRYS_PAL,false,true), bad = makeStone(24,15,13,BAD_PAL,false,true);
 
   app.innerHTML = `${bar(big ? 'Броски в Большой шахте' : 'Броски с гномом '+t.name)}
@@ -1410,7 +1495,7 @@ function throwGame(arg){
   function spawn(){
     const q = nextQ(), vals = shuffle([q.ans, ...distractors(q.n,q.k)]), xs = shuffle([72,180,288]);
     // время спуска до гнома: сначала 12 секунд, с каждой удачей пауки быстрее (не меньше 4,5 с)
-    const T = Math.max(4.5, (big ? 11 : 12) - combo*0.5 - right*0.15);
+    const T = Math.max(4.5, (big ? 11 : 12) - combo*0.5 - right*0.15) + (hasTool(arg,'shovel') ? 2 : 0);
     wave = {q, res:null, amp:Math.min(34, 6+right*1.6), vy:(BITE+70)/T,
       spiders: vals.map((val,i)=>({ax:xs[i], y:-70-Math.random()*30, ph:Math.random()*6, val, st:'down', good:false, kind:(Math.random()*4)|0}))};
   }
@@ -1575,7 +1660,7 @@ function throwGame(arg){
     const stars = finished && slips===0 ? 3 : finished ? 2 : 1;
     if(big) S.bigThrow = Math.max(S.bigThrow||0, stars); else tp(arg).throw = Math.max(tp(arg).throw||0, stars);
     save(); draw();
-    reward({title: finished ? 'Все пауки прогнаны!' : 'Каски кончились', stars, crystal: finished ? 1 : 0,
+    reward({title: finished ? 'Все пауки прогнаны!' : 'Каски кончились', stars, errors:slips, crystal: finished ? 1 : 0,
       line:`Очки: ${score}. Метких бросков: ${right} из ${done}`, again:['throw',arg]});
   }
   const pt = e=>{ const r = cv.getBoundingClientRect(); return [(e.clientX-r.left)/r.width*W, (e.clientY-r.top)/r.height*H]; };
@@ -1584,7 +1669,7 @@ function throwGame(arg){
   cv.addEventListener('pointerup', e=>{ if(!aim) return; const [x,y] = pt(e); aim.cx = x; aim.cy = y; const tg = aimTarget(aim); aim = null; if(tg) launch(tg[0], tg[1]); });
   cv.addEventListener('pointercancel', ()=> aim = null);
   cleanup.push(()=>{ over = true; cancelAnimationFrame(raf); ro.disconnect(); });
-  $('#gobtn').onclick = ()=>{ $('#rs').hidden = true; running = true; spawn(); chime(0); chime(4); };
+  $('#gobtn').onclick = ()=>{ startRound(); $('#rs').hidden = true; running = true; spawn(); chime(0); chime(4); };
   document.fonts?.ready.then(()=>{ if(!over) draw(); });
   raf = requestAnimationFrame(frame);
 }
@@ -1678,7 +1763,7 @@ const CAVE_ITEMS = [
   {key:'throne', name:'Трон короля Одина', text:'Золотой трон в центре пещеры. Король Один садится на него.', box:[88,42,24,38],
     draw(c){ const ox = 91; R_(c,ox,52,18,28,'#3a2414'); R_(c,ox+1,53,16,26,'#c99a3a'); R_(c,ox+1,53,16,1,'#f7c548'); R_(c,ox+3,55,12,22,'#8a2f4a'); R_(c,ox-1,66,20,3,'#c99a3a'); R_(c,ox-1,66,20,1,'#f7c548');
       R_(c,ox+1,78,3,2,'#3a2414'); R_(c,ox+14,78,3,2,'#3a2414'); R_(c,ox+8,52,2,2,'#5fd3c6'); R_(c,ox+2,80,14,1,'#8a2f2a');
-      c.drawImage(sprCanvas(ART.gnome, gnomePal(tableOf(1)), 'gnome1'), ox+1, 50);
+      c.drawImage(sprCanvas(ART.gnome, gnomePal(tableOf(1)), 'gnome'+gnomeKey(tableOf(1))), ox+1, 50);
       c.drawImage(sprCanvas(CROWN, {Y:'#f7c548', R:'#e3644d', C:'#5fd3c6'}, 'crown-s'), ox+6, 54); },
     over(c,t){ spark1(c, 96, 46, t*1.2, '#fff2a8'); spark1(c, 102, 47, t*1.2+1.1, '#fff2a8'); spark1(c, 99, 52, t*0.8+0.6, '#c9fff6'); },
     lights:t=>[{x:100,y:52,r:20+Math.sin(t*3)*2,c:'255,220,120'}]},
@@ -1750,7 +1835,7 @@ function stepCaveParts(parts, t, dt){
 }
 function drawCaveGnome(c, g, t, sel){
   const bob = g.T.n===sel && Math.sin(t*5)>0 ? 1 : 0;
-  c.drawImage(sprCanvas(ART.gnome, gnomePal(g.T), 'gnome'+g.T.n), g.x-8, g.y-22-bob);
+  c.drawImage(sprCanvas(ART.gnome, gnomePal(g.T), 'gnome'+gnomeKey(g.T)), g.x-8, g.y-22-bob);
   if(g.T.king) c.drawImage(sprCanvas(CROWN, {Y:'#f7c548', R:'#e3644d', C:'#5fd3c6'}, 'crown-s'), g.x-3, g.y-18-bob);
 }
 function itemPreview(it){
@@ -1767,6 +1852,7 @@ function home(){
     ${S.own.length ? '' : '<p class="cave-tip">В пещере темно. Собери кристаллы и создай что-нибудь в Лаборатории.</p>'}
     <div class="row cave-actions">
       <span class="muted">Нажми на гнома, чтобы выбрать его</span>
+      <button class="pbtn" data-go="shop">Магазин</button>
       <button class="pbtn alt" data-go="treasury">Сокровищница · ${S.own.length} из ${CAVE_ITEMS.length}</button>
     </div>
     <div id="gcard"></div>
@@ -1782,7 +1868,10 @@ function home(){
     $('#gcard').innerHTML = `<section class="card">
       <div class="card-head">${gnome(t)}<div>
         <div class="num">×${t.n}${t.king?'<span class="master">король</span>':''}${t.hard?'<span class="tag">трудная</span>':''}${p.mine===3?'<span class="master">мастер</span>':''}</div>
-        <h3>${t.king?'Король':'Гном'} ${t.name}</h3><p>${t.lore}</p></div></div>
+        <h3>${t.king?'Король':'Гном'} ${t.name}</h3><p>${t.lore}</p>
+        <small>Самоцветы: ${wallet(t.n)}</small>
+        ${SHOP.filter(item=>owns(t.n,item.id) && ['ice','cake'].includes(item.id)).map(item=>`<button class="pbtn alt" data-treat="${item.id}" aria-label="${item.name}">${item.icon}</button>`).join('')}
+        </div></div>
       <div class="stages">
         <button class="stage" data-go="rhythm" data-arg="${t.n}"><b>Тропа</b>${starsHTML(p.rhythm)}</button>
         <button class="stage" data-go="echo" data-arg="${t.n}"><b>Эхо</b>${starsHTML(p.echo||0)}</button>
@@ -1820,6 +1909,29 @@ function crystalSVG(n){
   return `<svg viewBox="20 20 260 260"><circle cx="150" cy="150" r="112" fill="none" stroke="var(--rock-2)" stroke-width="4"/>
     <polygon points="${crystalPath(n)}" fill="var(--gem)" fill-opacity=".38" fill-rule="evenodd" stroke="var(--lamp)" stroke-width="5" stroke-linejoin="round"/></svg>`;
 }
+function shop(n = S.sel){
+  const t = tableOf(n);
+  app.innerHTML = `${bar('Магазин')}
+    <div class="row" aria-label="Выбрать гнома">
+      ${TABLES.map(g=>`<button class="pbtn ${g.n===n?'':'alt'}" data-go="shop" data-arg="${g.n}" aria-pressed="${g.n===n}">${g.name}</button>`).join('')}
+    </div>
+    <div class="intro">${gnome(t)}<p>Самоцветы гнома ${t.name}: <b>${wallet(n)}</b></p></div>
+    <p>Награда за раунд: 0 ошибок — 5, 1–2 — 4, 3–4 — 3, 5 и больше — 0.</p>
+    <div class="items" id="shop-items">${SHOP.map(item=>`<div class="item">
+      <span class="item-icon" aria-hidden="true">${item.icon}</span><h3>${item.name}</h3><small>${item.text}</small>
+      <button class="pbtn alt" data-buy="${item.id}" aria-label="${item.name}: ${item.price} самоцветов"
+        ${owns(n,item.id) || wallet(n)<item.price?'disabled':''}>${owns(n,item.id)?'Куплено':`💎 ${item.price}`}</button>
+    </div>`).join('')}</div>`;
+  $('#shop-items').onclick = e=>{
+    const item = SHOP.find(i=>i.id===e.target.closest('[data-buy]')?.dataset.buy);
+    if(!item || owns(n,item.id) || wallet(n)<item.price) return;
+    S.wallets[n] = wallet(n) - item.price;
+    (S.purchases[n] ||= []).push(item.id);
+    save();
+    shop(n);
+  };
+}
+
 function treasury(){
   const hard = Object.entries(S.facts).map(([k,f])=>({k, s:f.bad*2-f.ok})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s).slice(0,8);
   const maker = key => { const n = Object.keys(S.made).find(n=>S.made[n]===key); return n ? tableOf(+n) : null; };
@@ -1850,34 +1962,41 @@ function treasury(){
 const plural = (n, one, few, many) => { const a = n%10, b = n%100; return a===1 && b!==11 ? one : a>=2 && a<=4 && (b<12 || b>14) ? few : many; };
 
 /* ---------- окно награды: кристаллы по звёздам ---------- */
-function reward({title, stars, line, again, next, crystalOf, crystal=1, once}){
+function reward({title, stars, errors, line, again, next, crystalOf, crystal=1, once, show=render=>render()}){
   // три звезды — 3 кристалла, две — 2, одна — ничего (Гонку и Броски ещё нужно пройти до конца)
   crystal = crystal && stars>=2 ? stars : 0;
   // в Тропе и Эхо кристаллы у каждого гнома один раз за всё время: 2 звезды, потом доплата до трёх
   const earned = crystal; let paidAll = false;
   if(once){ const p = tp(once[1]), had = p[once[0]]||0; crystal = Math.max(0, earned-had); p[once[0]] = Math.max(had, earned); paidAll = earned>0 && !crystal || !earned && had>=3; }
   if(crystal) S.kr += crystal;
+  const gems = awardGems(again[1],errors);
   save();
-  const canLab = S.kr>=LAB_COST && TABLES.some(T=>!S.made[T.n]);
-  const ritual = !ritualShown && Date.now()-T0 > 15*60*1000; if(ritual) ritualShown = true;
-  const v = document.createElement('div'); v.className='veil';
-  v.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
-    <h2 style="color:var(--lamp)">${title}</h2>
-    ${starsHTML(stars)}
-    ${crystalOf ? `<div class="crystals">${crystalSVG(crystalOf)}</div>` : ''}
-    ${crystal ? `<div class="gain">${gemIco()}+${crystal} ${plural(crystal,'кристалл','кристалла','кристаллов')}</div>${crystal<earned ? `<p class="muted">Это доплата до трёх звёзд: остальное ${tableOf(once[1]).name} уже подарил раньше.</p>` : once ? `<p class="muted">${earned<3 ? `За ${once[2]} на три звезды ${tableOf(once[1]).name} подарит ещё 1 кристалл, а потом это тренировка.` : `За ${once[2]} гном дарит кристаллы один раз. Дальше это тренировка.`}</p>` : ''}` : paidAll ? `<p class="muted">За ${once[2]} ${tableOf(once[1]).name} уже подарил кристаллы. Играть можно сколько хочешь, это тренировка.</p>` : (stars!==undefined ? `<p class="muted">Кристаллы гном дарит за две звезды (2 кристалла) и за три звезды (3 кристалла). Попробуй ещё раз!</p>` : '')}
-    ${line ? `<p>${line}</p>` : ''}
-    ${canLab ? `<p class="perk">Кристаллов хватает, чтобы создать в Лаборатории тайную вещь.</p>` : ''}
-    <div class="row">
-      ${next ? `<button class="pbtn" data-go="${next[0]}" data-arg="${next[1]}">${next[2]}</button>` : ''}
-      <button class="pbtn ${next?'alt':''}" data-go="${again[0]}" data-arg="${again[1]}">Ещё раз</button>
-      <button class="pbtn alt" data-go="home">В пещеру</button>
-    </div>
-    ${ritual ? `<p class="ritual">Гномы потрудились и идут ужинать. Хорошее время закрыть шахту до завтра и нарисовать сегодняшний кристалл в тетради.</p>` : ''}
-  </div>`;
-  document.body.appendChild(v);
-  const g = v.querySelector('.gain') || v.querySelector('h2');
-  if(crystal) [0,250,500].slice(0,crystal).forEach((d,i)=>setTimeout(()=>fx.burst(g, 26, i===1 ? RAMP.fire : RAMP.gem, {speed:380}), d));
+  $('#gemc b').textContent = S.kr;
+  const screen = screenId;
+  show(()=>{
+    if(screen !== screenId) return;
+    const canLab = S.kr>=LAB_COST && TABLES.some(T=>!S.made[T.n]);
+    const ritual = !ritualShown && Date.now()-T0 > 15*60*1000; if(ritual) ritualShown = true;
+    const v = document.createElement('div'); v.className='veil';
+    v.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
+      <h2 style="color:var(--lamp)">${title}</h2>
+      ${starsHTML(stars)}
+      ${crystalOf ? `<div class="crystals">${crystalSVG(crystalOf)}</div>` : ''}
+      ${crystal ? `<div class="gain">${gemIco()}+${crystal} ${plural(crystal,'кристалл','кристалла','кристаллов')}</div>${crystal<earned ? `<p class="muted">Это доплата до трёх звёзд: остальное ${tableOf(once[1]).name} уже подарил раньше.</p>` : once ? `<p class="muted">${earned<3 ? `За ${once[2]} на три звезды ${tableOf(once[1]).name} подарит ещё 1 кристалл, а потом это тренировка.` : `За ${once[2]} гном дарит кристаллы один раз. Дальше это тренировка.`}</p>` : ''}` : paidAll ? `<p class="muted">За ${once[2]} ${tableOf(once[1]).name} уже подарил кристаллы. Играть можно сколько хочешь, это тренировка.</p>` : (stars!==undefined ? `<p class="muted">Кристаллы гном дарит за две звезды (2 кристалла) и за три звезды (3 кристалла). Попробуй ещё раз!</p>` : '')}
+      <p>Ошибок: ${errors} · Самоцветы: +${gems}${again[1]==='big' ? ' каждому гному' : ''}</p>
+      ${line ? `<p>${line}</p>` : ''}
+      ${canLab ? `<p class="perk">Кристаллов хватает, чтобы создать в Лаборатории тайную вещь.</p>` : ''}
+      <div class="row">
+        ${next ? `<button class="pbtn" data-go="${next[0]}" data-arg="${next[1]}">${next[2]}</button>` : ''}
+        <button class="pbtn ${next?'alt':''}" data-go="${again[0]}" data-arg="${again[1]}">Ещё раз</button>
+        <button class="pbtn alt" data-go="home">В пещеру</button>
+      </div>
+      ${ritual ? `<p class="ritual">Гномы потрудились и идут ужинать. Хорошее время закрыть шахту до завтра и нарисовать сегодняшний кристалл в тетради.</p>` : ''}
+    </div>`;
+    document.body.appendChild(v);
+    const g = v.querySelector('.gain') || v.querySelector('h2');
+    if(crystal) [0,250,500].slice(0,crystal).forEach((d,i)=>after(d,()=>fx.burst(g, 26, i===1 ? RAMP.fire : RAMP.gem, {speed:380})));
+  });
 }
 
 go('home');
